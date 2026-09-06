@@ -24,7 +24,7 @@ _OPTIONS = [
 
 def print_help() -> None:
     """Render the user-friendly CLI help menu."""
-    console.print("\n[bold cyan]sharkyo[/bold cyan]  [dim]Your shark in the terminal[/dim]\n")
+    console.print("\n[bold cyan]sharkyo[/bold cyan]  [dim]Shark, yo. Operate the system![/dim]\n")
     console.print("[bold]Usage:[/bold] [cyan]sharkyo[/cyan] [dim]\"message\" [OPTIONS][/dim]\n")
     col_width = max(len(flag) + (len(arg) + 1 if arg else 0) for flag, arg, _ in _OPTIONS)
     for flag, arg, desc in _OPTIONS:

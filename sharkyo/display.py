@@ -60,8 +60,3 @@ def print_error(msg: str) -> None:
 def print_success(msg: str) -> None:
     """Print success message."""
     console.print(f"  [cyan]✓[/cyan] {msg}")
-
-
-def prompt_user(msg: str) -> str:
-    """Prompt user for input."""
-    return console.input(f"  [bold cyan]?[/bold cyan] {msg} ")

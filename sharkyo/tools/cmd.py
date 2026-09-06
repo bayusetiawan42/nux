@@ -2,11 +2,12 @@
 
 import subprocess
 
+import questionary
 from rich.markdown import Markdown
 from rich.padding import Padding
 
 from sharkyo.config import Config
-from sharkyo.display import console, print_info, prompt_user
+from sharkyo.display import console, print_info
 
 SCHEMA = {
     "type": "function",
@@ -60,8 +61,19 @@ def execute(args: dict, config: Config) -> tuple[str | None, bool]:
     elif review_output_stderr:
         console.print("  [dim](stderr will be sent back to sharkyo if errors occur)[/dim]")
 
-    confirm = prompt_user("Run it? (y/n):").strip().lower()
-    if confirm not in ("y", "yes"):
+    confirm = questionary.select(
+        "Run it?",
+        choices=["Yes", "No"],
+        style=questionary.Style([
+            ("qmark", "fg:#00bcd4 bold"),
+            ("question", "bold"),
+            ("pointer", "fg:#00bcd4 bold"),
+            ("highlighted", "fg:#00bcd4 bold"),
+            ("selected", "fg:#00bcd4"),
+        ]),
+    ).ask()
+
+    if confirm != "Yes":
         print_info("Cancelled.")
         return None, False
 

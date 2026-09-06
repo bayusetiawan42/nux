@@ -11,11 +11,11 @@ RC_FILE = os.path.expanduser("~/.sharkyorc")
 class Config:
     """Sharkyo configuration settings."""
     model: str = "openai/gpt-oss-120b"
-    max_history: int = 30
-    cmd_out_chars: int = 10000
+    max_history: int = 12
+    cmd_out_chars: int = 4000
     cmd_out_lines: int = 30
     temperature: float = 0.7
-    max_tokens: int = 1024
+    max_tokens: int = 512
 
 
 _SET_RE = re.compile(r"^set\s+(\S+)\s+(.+)$", re.IGNORECASE)

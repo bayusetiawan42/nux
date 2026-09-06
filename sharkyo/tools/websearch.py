@@ -63,9 +63,10 @@ def _is_url(text: str) -> bool:
     return text.startswith("http://") or text.startswith("https://")
 
 
-def _fetch_html(url: str) -> str:
-    """Fetch raw HTML from a URL with automatic decompression."""
+def _fetch_html(url: str, timeout: int = _TIMEOUT) -> str:
+    """Fetch raw HTML from a URL with automatic decompression and SSL fallback."""
     import gzip
+    import ssl
     import zlib
 
     req = urllib.request.Request(
@@ -77,7 +78,16 @@ def _fetch_html(url: str) -> str:
             "Accept-Encoding": "gzip, deflate",
         },
     )
-    with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
+    try:
+        resp = urllib.request.urlopen(req, timeout=timeout)
+    except urllib.error.URLError as e:
+        if "CERTIFICATE_VERIFY_FAILED" in str(e):
+            ctx = ssl._create_unverified_context()
+            resp = urllib.request.urlopen(req, timeout=timeout, context=ctx)
+        else:
+            raise e
+
+    with resp:
         content_type = resp.headers.get("Content-Type", "")
         if "text/html" not in content_type and "text/plain" not in content_type:
             raise ValueError(f"Unsupported content type: {content_type}")
@@ -88,6 +98,7 @@ def _fetch_html(url: str) -> str:
         elif "deflate" in encoding:
             raw = zlib.decompress(raw)
         return raw.decode("utf-8", errors="replace")
+
 
 
 def _extract_text(html: str) -> str:
@@ -191,7 +202,7 @@ def execute(args: dict, config: Config | None = None) -> tuple[str, bool]:
             text = text[:_MAX_PAGE_CHARS] + f"\n\n[Content truncated at {_MAX_PAGE_CHARS} chars]"
         return f"Page content from {query}:\n\n{text}", True
 
-    # Case 2: Keywords → search DDG, fetch top result + show snippets
+    # Case 2: Keywords → search DDG, fetch top result with 5x fallback + show snippets
     print_info(f"Searching: [bold cyan]{query}[/bold cyan]")
     try:
         results = _ddg_search(query)
@@ -202,28 +213,57 @@ def execute(args: dict, config: Config | None = None) -> tuple[str, bool]:
     if not results:
         return f"No results found for: {query}", True
 
-    top = results[0]
-    print_info(f"Reading: [bold cyan]{top.url}[/bold cyan]")
+    # 5x Try Fallback: iterate through top 5 results until one yields readable content
+    successful_result = None
+    fetched_text = ""
 
-    top_text = ""
-    try:
-        html = _fetch_html(top.url)
-        top_text = _extract_text(html)
-        if len(top_text) > _MAX_PAGE_CHARS:
-            top_text = top_text[:_MAX_PAGE_CHARS] + f"\n\n[Content truncated at {_MAX_PAGE_CHARS} chars]"
-    except Exception as e:
-        top_text = f"(Could not load full page: {e})"
+    candidates = results[:5]
+    for idx, candidate in enumerate(candidates, 1):
+        print_info(f"Reading [dim]({idx}/{len(candidates)})[/dim]: [bold cyan]{candidate.url}[/bold cyan]")
+        try:
+            html = _fetch_html(candidate.url, timeout=5)
+            text = _extract_text(html)
+            # Must have substantial content (not empty, not just an error page / placeholder)
+            if text and text != "(No readable content found on this page)" and len(text.strip()) > 80:
+                successful_result = candidate
+                fetched_text = text
+                break
+            else:
+                print_info(f"Result #{idx} had insufficient content, trying fallback...")
+        except Exception as e:
+            print_info(f"Result #{idx} fetch failed ({e}), trying fallback...")
 
-    # Combine top result full content with other results snippets
+    # If a page was successfully fetched:
+    if successful_result:
+        if len(fetched_text) > _MAX_PAGE_CHARS:
+            fetched_text = fetched_text[:_MAX_PAGE_CHARS] + f"\n\n[Content truncated at {_MAX_PAGE_CHARS} chars]"
+
+        output_parts = [
+            f"=== Page Content: {successful_result.title} ===",
+            f"URL: {successful_result.url}",
+            "",
+            fetched_text,
+            "",
+            "=== Other Search Results (Snippets) ===",
+        ]
+        for idx, r in enumerate(results, 1):
+            if r.url == successful_result.url:
+                continue
+            output_parts.append(f"[{idx}] {r.title}")
+            output_parts.append(f"    URL: {r.url}")
+            if r.snippet:
+                output_parts.append(f"    {r.snippet}")
+            output_parts.append("")
+
+        return "\n".join(output_parts).strip(), True
+
+    # Fallback: if all top 5 candidates failed, return all DDG snippets
     output_parts = [
-        f"=== Top Result Content: {top.title} ===",
-        f"URL: {top.url}",
-        "",
-        top_text,
-        "",
-        "=== Other Search Results (Snippets) ===",
+        f"Search: {query}",
+        "Notice: Could not load full pages for the top 5 links (SPA, paywall, or blocked).",
+        "Using search snippets:\n",
     ]
-    for idx, r in enumerate(results[1:], 2):
+    for idx, r in enumerate(results, 1):
         output_parts.append(f"[{idx}] {r.title}")
         output_parts.append(f"    URL: {r.url}")
         if r.snippet:

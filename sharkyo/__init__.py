@@ -1,1 +1,3 @@
-# Sharkyo — Your shark in the terminal
+"""Sharkyo — Your shark in the terminal."""
+
+__version__ = "0.1.0"

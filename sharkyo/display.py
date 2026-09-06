@@ -2,7 +2,7 @@
 
 from rich.console import Console
 from rich.markdown import Markdown
-from yaspin import yaspin
+from rich.padding import Padding
 from yaspin.core import Spinner
 
 console = Console(force_terminal=True)
@@ -10,9 +10,9 @@ console = Console(force_terminal=True)
 # ---------------------------------------------------------------------------
 # Spinner — shining blue text animation
 # ---------------------------------------------------------------------------
-_BLUE = "\033[94m"   # bright blue
-_DIM  = "\033[2;37m" # dim gray
-_RST  = "\033[0m"
+_BLUE = "\033[94m"    # bright blue
+_DIM = "\033[2;37m"   # dim gray
+_RST = "\033[0m"
 
 _word = "sharkyo"
 _shiny_frames = []
@@ -32,33 +32,36 @@ SHARK_SPINNER = Spinner(_shiny_frames, interval=100)
 # ---------------------------------------------------------------------------
 # Display helpers
 # ---------------------------------------------------------------------------
-
 def _looks_like_markdown(text: str) -> bool:
-    """Heuristic: check for common markdown markers."""
-    markers = ("**", "##", "```", "- ", "* ", "> ", "~~", "__", "[")
+    """Heuristic check for common markdown markers."""
+    markers = ("**", "##", "```", "- ", "* ", "> ", "~~", "__", "1. ")
     return any(m in text for m in markers)
 
 
 def print_reply(text: str) -> None:
-    """Print the assistant reply with sharkyo prefix."""
-    console.print("[bold cyan]sharkyo[/bold cyan]", end=" ")
+    """Print the assistant reply with sharkyo prefix, formatting markdown cleanly."""
     if _looks_like_markdown(text):
-        console.print(Markdown(text))
+        console.print("[bold cyan]sharkyo[/bold cyan]")
+        console.print(Padding(Markdown(text), (0, 0, 0, 2)))
     else:
-        console.print(text)
+        console.print(f"[bold cyan]sharkyo[/bold cyan] {text}")
 
 
 def print_info(msg: str) -> None:
-    console.print(f"[cyan]~[/cyan] {msg}")
+    """Print informational notice."""
+    console.print(f"  [cyan]~[/cyan] {msg}")
 
 
 def print_error(msg: str) -> None:
-    console.print(f"[bold red]x[/bold red] {msg}")
+    """Print error message."""
+    console.print(f"  [bold red]x[/bold red] {msg}")
 
 
 def print_success(msg: str) -> None:
-    console.print(f"[cyan]✓[/cyan] {msg}")
+    """Print success message."""
+    console.print(f"  [cyan]✓[/cyan] {msg}")
 
 
 def prompt_user(msg: str) -> str:
-    return console.input(f"[bold cyan]?[/bold cyan] {msg}")
+    """Prompt user for input."""
+    return console.input(f"  [bold cyan]?[/bold cyan] {msg} ")

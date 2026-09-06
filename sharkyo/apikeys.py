@@ -1,83 +1,84 @@
 """API key management with multi-provider and round-robin rotation."""
 
-import sqlite3
 import time
-
-from sharkyo.constants import DB_FILE
-
-
-def _conn() -> sqlite3.Connection:
-    db = sqlite3.connect(DB_FILE)
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS apikeys (
-            id       INTEGER PRIMARY KEY AUTOINCREMENT,
-            key      TEXT    NOT NULL UNIQUE,
-            provider TEXT    NOT NULL DEFAULT 'groq',
-            base_url TEXT,
-            active   INTEGER NOT NULL DEFAULT 0,
-            reset_at INTEGER NOT NULL DEFAULT 0
-        )
-    """)
-    db.commit()
-    return db
+from sharkyo.db import get_connection
 
 
 def list_keys() -> list[dict]:
-    with _conn() as db:
-        rows = db.execute(
+    """Return all configured API keys."""
+    with get_connection() as conn:
+        rows = conn.execute(
             "SELECT id, key, provider, base_url, active, reset_at FROM apikeys ORDER BY id"
         ).fetchall()
     return [
-        {"id": r[0], "key": r[1], "provider": r[2], "base_url": r[3],
-         "active": bool(r[4]), "reset_at": r[5]}
+        {
+            "id": r["id"],
+            "key": r["key"],
+            "provider": r["provider"],
+            "base_url": r["base_url"],
+            "active": bool(r["active"]),
+            "reset_at": r["reset_at"],
+        }
         for r in rows
     ]
 
 
 def active_key() -> dict | None:
-    with _conn() as db:
-        row = db.execute(
+    """Return the currently active API key dictionary, or None."""
+    with get_connection() as conn:
+        row = conn.execute(
             "SELECT id, key, provider, base_url FROM apikeys WHERE active = 1 LIMIT 1"
         ).fetchone()
     if not row:
         return None
-    return {"id": row[0], "key": row[1], "provider": row[2], "base_url": row[3]}
+    return {
+        "id": row["id"],
+        "key": row["key"],
+        "provider": row["provider"],
+        "base_url": row["base_url"],
+    }
 
 
 def add_key(key: str, provider: str = "groq", base_url: str | None = None) -> None:
-    with _conn() as db:
-        count = db.execute("SELECT COUNT(*) FROM apikeys").fetchone()[0]
-        db.execute(
+    """Add a new API key. Sets it active if it is the first key added."""
+    with get_connection() as conn:
+        count = conn.execute("SELECT COUNT(*) FROM apikeys").fetchone()[0]
+        conn.execute(
             "INSERT OR IGNORE INTO apikeys (key, provider, base_url, active) VALUES (?, ?, ?, ?)",
-            (key, provider, base_url, 1 if count == 0 else 0),
+            (key.strip(), provider.strip(), base_url.strip() if base_url else None, 1 if count == 0 else 0),
         )
-        db.commit()
+        conn.commit()
 
 
-def _set_active(key_id: int) -> None:
-    with _conn() as db:
-        db.execute("UPDATE apikeys SET active = 0")
-        db.execute("UPDATE apikeys SET active = 1 WHERE id = ?", (key_id,))
-        db.commit()
+def set_active(key_id: int) -> None:
+    """Mark a specific key as active, deactivating all others."""
+    with get_connection() as conn:
+        conn.execute("UPDATE apikeys SET active = 0")
+        conn.execute("UPDATE apikeys SET active = 1 WHERE id = ?", (key_id,))
+        conn.commit()
 
 
 def rotate_active() -> dict | None:
+    """Rotate round-robin to the next non-rate-limited key."""
     now = int(time.time())
     keys = list_keys()
     if not keys:
         return None
+
     current_id = next((k["id"] for k in keys if k["active"]), keys[0]["id"])
     n = len(keys)
     start = next((i for i, k in enumerate(keys) if k["id"] == current_id), 0)
+
     for offset in range(1, n + 1):
         candidate = keys[(start + offset) % n]
         if candidate["reset_at"] <= now:
-            _set_active(candidate["id"])
+            set_active(candidate["id"])
             return candidate
     return None
 
 
 def save_rate_limit(key_id: int, reset_ts: int) -> None:
-    with _conn() as db:
-        db.execute("UPDATE apikeys SET reset_at = ? WHERE id = ?", (reset_ts, key_id))
-        db.commit()
+    """Record rate-limit reset timestamp for a key."""
+    with get_connection() as conn:
+        conn.execute("UPDATE apikeys SET reset_at = ? WHERE id = ?", (reset_ts, key_id))
+        conn.commit()

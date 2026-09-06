@@ -10,7 +10,6 @@ dependencies = [
     "openai",
     "yaspin",
     "rich",
-    "beautifulsoup4",
 ]
 
 [project.scripts]

@@ -2,20 +2,18 @@
 
 from sharkyo.config import Config
 from sharkyo.display import print_error
-from sharkyo.tools import cmd, knowledge, skill, websearch
+from sharkyo.tools import cmd, knowledge, skill
 
 TOOLS_SCHEMA = [
     cmd.SCHEMA,
     knowledge.SCHEMA,
     skill.SCHEMA,
-    websearch.SCHEMA,
 ]
 
 _REGISTRY = {
     "CMD": cmd.execute,
     "KNOWLEDGE": knowledge.execute,
     "SKILL": skill.execute,
-    "WEBSEARCH": websearch.execute,
 }
 
 

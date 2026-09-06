@@ -1,5 +1,7 @@
 """Shell command execution tool."""
 
+import os
+import pty
 import subprocess
 
 import questionary
@@ -42,6 +44,15 @@ SCHEMA = {
                         "Default: false."
                     ),
                 },
+                "interactive": {
+                    "type": "boolean",
+                    "description": (
+                        "Set true for commands that may prompt for input "
+                        "(sudo, gh auth login, git credential prompts, npm init, etc). "
+                        "Input is forwarded to the user's terminal via a pty. "
+                        "Default: false."
+                    ),
+                },
             },
             "required": ["command"],
         },
@@ -49,13 +60,38 @@ SCHEMA = {
 }
 
 
+def _run_interactive(command: str) -> tuple[str, str, int]:
+    """Run command in a pty so stdin/stdout passthrough to the real terminal,
+    while still capturing a transcript for later review."""
+    buf = bytearray()
+
+    def master_read(fd):
+        data = os.read(fd, 1024)
+        buf.extend(data)
+        return data  # must return so pty.spawn still echoes it to real stdout
+
+    argv = ["/bin/sh", "-c", command]
+    status = pty.spawn(argv, master_read)
+    if hasattr(os, "waitstatus_to_exitcode"):
+        returncode = os.waitstatus_to_exitcode(status)
+    else:
+        returncode = status
+
+    text = buf.decode(errors="replace")
+    # pty merges stdout+stderr into one stream, so we report it all as stdout
+    return text, "", returncode
+
+
 def execute(args: dict, config: Config) -> tuple[str | None, bool]:
     """Execute a shell command with user confirmation and formatted display."""
     command = args.get("command", "")
     review_output = args.get("review_output", False)
     review_output_stderr = args.get("review_output_stderr", False)
+    interactive = args.get("interactive", False)
 
     console.print(f"\n  [bold cyan]![/bold cyan] Wants to run: [cyan]{command}[/cyan]")
+    if interactive:
+        console.print("  [dim](interactive — respond to prompts in your terminal)[/dim]")
     if review_output:
         console.print("  [dim](output will be sent back to sharkyo)[/dim]")
     elif review_output_stderr:
@@ -77,20 +113,26 @@ def execute(args: dict, config: Config) -> tuple[str | None, bool]:
         print_info("Cancelled.")
         return None, False
 
-    try:
-        result = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            text=True,
-        )
-        stdout = result.stdout or ""
-        stderr = result.stderr or ""
-        returncode = result.returncode
-    except Exception as e:
-        stdout = ""
-        stderr = f"Error running command: {e}"
-        returncode = 1
+    if interactive:
+        try:
+            stdout, stderr, returncode = _run_interactive(command)
+        except Exception as e:
+            stdout, stderr, returncode = "", f"Error running command: {e}", 1
+    else:
+        try:
+            result = subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+            )
+            stdout = result.stdout or ""
+            stderr = result.stderr or ""
+            returncode = result.returncode
+        except Exception as e:
+            stdout = ""
+            stderr = f"Error running command: {e}"
+            returncode = 1
 
     # Format output for user display (always shown as codeblock)
     combined_parts = []
@@ -108,8 +150,12 @@ def execute(args: dict, config: Config) -> tuple[str | None, bool]:
     if display_cut:
         visible += f"\n... ({len(lines) - display_limit} more lines)"
 
-    codeblock = "```\n" + visible + "\n```"
-    console.print(Padding(Markdown(codeblock), (0, 0, 0, 2)))
+    if interactive:
+        # Already streamed live to the real terminal via the pty; don't reprint.
+        console.print()
+    else:
+        codeblock = "```\n" + visible + "\n```"
+        console.print(Padding(Markdown(codeblock), (0, 0, 0, 2)))
 
     # Determine what to review back to the model
     char_limit = config.cmd_out_chars

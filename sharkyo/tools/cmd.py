@@ -105,7 +105,11 @@ def execute(args: dict, config: Config) -> tuple[str | None, bool]:
     if review_output:
         model_out = raw
         if len(model_out) > char_limit:
-            model_out = model_out[:char_limit] + f"\n\n[Command output truncated: exceeded {char_limit} chars]"
+            head_chars = char_limit // 3
+            tail_chars = char_limit - head_chars
+            head = model_out[:head_chars]
+            tail = model_out[-tail_chars:]
+            model_out = f"{head}\n\n[... output truncated ...]\n\n{tail}"
         return model_out, True
 
     if review_output_stderr:
@@ -113,7 +117,9 @@ def execute(args: dict, config: Config) -> tuple[str | None, bool]:
         if err_content or returncode != 0:
             err_raw = (err_content or "(no stderr output)") + f" [ exit {returncode} ]"
             if len(err_raw) > char_limit:
-                err_raw = err_raw[:char_limit] + f"\n\n[Stderr truncated: exceeded {char_limit} chars]"
+                head_chars = char_limit // 3
+                tail_chars = char_limit - head_chars
+                err_raw = f"{err_raw[:head_chars]}\n\n[... stderr truncated ...]\n\n{err_raw[-tail_chars:]}"
             return err_raw, True
         return None, False
 

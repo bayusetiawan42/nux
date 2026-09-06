@@ -5,7 +5,7 @@ import time
 import uuid
 from sharkyo.db import get_connection
 
-_DEFAULT_MAX = 30
+_DEFAULT_MAX = 12
 
 
 class HistoryManager:

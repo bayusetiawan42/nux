@@ -12,7 +12,7 @@ class Config:
     """Sharkyo configuration settings."""
     model: str = "openai/gpt-oss-120b"
     max_history: int = 12
-    cmd_out_chars: int = 4000
+    cmd_out_chars: int = 3000
     cmd_out_lines: int = 30
     temperature: float = 0.7
     max_tokens: int = 512

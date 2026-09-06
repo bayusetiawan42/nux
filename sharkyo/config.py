@@ -1,6 +1,6 @@
 """Configuration management for Sharkyo (~/.sharkyorc)."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import os
 import re
 
@@ -55,28 +55,3 @@ def load_config() -> Config:
                     pass
 
     return cfg
-
-
-# Backwards compatibility helpers
-def load_rc() -> dict[str, str]:
-    cfg = load_config()
-    return {
-        "model": cfg.model,
-        "max_history": str(cfg.max_history),
-        "cmd_out_chars": str(cfg.cmd_out_chars),
-        "cmd_out_lines": str(cfg.cmd_out_lines),
-        "temperature": str(cfg.temperature),
-        "max_tokens": str(cfg.max_tokens),
-    }
-
-
-def rc_str(rc: dict, key: str) -> str:
-    return rc.get(key, "")
-
-
-def rc_int(rc: dict, key: str) -> int:
-    return int(rc.get(key, 0))
-
-
-def rc_float(rc: dict, key: str) -> float:
-    return float(rc.get(key, 0.0))

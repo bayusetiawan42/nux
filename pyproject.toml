@@ -14,3 +14,6 @@ dependencies = [
 
 [project.scripts]
 sharkyo = "sharkyo.main:main"
+
+[tool.setuptools.package-data]
+sharkyo = ["skills/*.md"]

@@ -2,25 +2,33 @@
 
 import subprocess
 
-from sharkyo.display import print_info, print_error, print_success, prompt_user
+from rich.markdown import Markdown
+from rich.padding import Padding
+
+from sharkyo.display import console, print_info, print_error, print_success, prompt_user
 from sharkyo.knowledge import KnowledgeManager
 from sharkyo.rcfiles import load_rc, rc_int
 
 
-def _run_cmd(args: dict) -> tuple[str, bool]:
+def _run_cmd(args: dict) -> tuple[str | None, bool]:
     """Execute a shell command, return (output, should_continue)."""
     command = args.get("command", "")
-    see_output = args.get("see_output", False)
+    review_output = args.get("review_output", False)
+    review_output_stderr = args.get("review_output_stderr", False)
 
-    print_info(f"run: [bold]{command}[/bold]")
-    confirm = prompt_user("Execute? [y/N] ").strip().lower()
+    console.print(
+        f"\n  [bold cyan]![/bold cyan] "
+        f"Wants to run: [cyan]{command}[/cyan]"
+    )
+    if review_output:
+        console.print("  [dim](output will be sent back to sharkyo)[/dim]")
+    elif review_output_stderr:
+        console.print("  [dim](stderr will be sent back to sharkyo if errors occur)[/dim]")
+
+    confirm = prompt_user("Run it? (y/n):").strip().lower()
     if confirm not in ("y", "yes"):
         print_info("Cancelled.")
-        return "User cancelled the command.", False
-
-    rc = load_rc()
-    max_chars = rc_int(rc, "cmd_out_chars")
-    max_lines = rc_int(rc, "cmd_out_lines")
+        return None, False
 
     try:
         result = subprocess.run(
@@ -29,24 +37,55 @@ def _run_cmd(args: dict) -> tuple[str, bool]:
             capture_output=True,
             text=True,
         )
-        combined = (result.stdout + result.stderr).strip()
+        stdout = result.stdout or ""
+        stderr = result.stderr or ""
+        returncode = result.returncode
     except Exception as e:
-        combined = f"Error running command: {e}"
+        stdout = ""
+        stderr = f"Error running command: {e}"
+        returncode = 1
 
-    if not see_output:
-        print_success(f"Done (exit {result.returncode})")
-        return f"Command ran. Exit code: {result.returncode}", True
+    # Format output for user display (always shown as codeblock)
+    combined_parts = []
+    if stdout:
+        combined_parts.append(stdout)
+    if stderr:
+        combined_parts.append(stderr)
+    combined = "\n".join(combined_parts).strip()
+    raw = (combined or "(no output)").strip() + f" [ exit {returncode} ]"
 
-    # Truncate output
-    lines = combined.splitlines()
-    if len(lines) > max_lines:
-        lines = lines[:max_lines]
-        combined = "\n".join(lines) + f"\n... (truncated to {max_lines} lines)"
-    if len(combined) > max_chars:
-        combined = combined[:max_chars] + f"\n... (truncated to {max_chars} chars)"
+    rc = load_rc()
+    display_limit = rc_int(rc, "cmd_out_lines")
+    lines = raw.splitlines()
+    display_cut = len(lines) > display_limit
+    visible = "\n".join(lines[:display_limit])
+    if display_cut:
+        visible += f"\n... ({len(lines) - display_limit} more lines)"
 
-    print_success(f"Done (exit {result.returncode})")
-    return combined or "(no output)", True
+    codeblock = "```\n" + visible + "\n```"
+    console.print(Padding(Markdown(codeblock), (0, 0, 0, 2)))
+
+    # Determine what to review back to the model
+    char_limit = rc_int(rc, "cmd_out_chars")
+
+    if review_output:
+        model_out = raw
+        if len(model_out) > char_limit:
+            model_out = model_out[:char_limit] + f"\n\n[Command output truncated: exceeded {char_limit} chars]"
+        return model_out, True
+
+    if review_output_stderr:
+        err_content = stderr.strip()
+        if err_content or returncode != 0:
+            err_raw = (err_content or "(no stderr output)") + f" [ exit {returncode} ]"
+            if len(err_raw) > char_limit:
+                err_raw = err_raw[:char_limit] + f"\n\n[Stderr truncated: exceeded {char_limit} chars]"
+            return err_raw, True
+        else:
+            return None, False
+
+    return None, False
+
 
 
 def _run_knowledge(args: dict) -> tuple[str, bool]:

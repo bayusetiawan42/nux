@@ -5,7 +5,13 @@ TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "CMD",
-            "description": "Run a shell command on the user's machine.",
+            "description": (
+                "Run a shell command on the user's machine. "
+                "Output is always shown to the user as a codeblock. "
+                "Use review_output=true if you need to see stdout+stderr to give a follow-up reply. "
+                "Use review_output_stderr=true if you only need stderr (e.g. to diagnose errors). "
+                "Leave both false if you don't need to see the output."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -13,9 +19,20 @@ TOOLS_SCHEMA = [
                         "type": "string",
                         "description": "The shell command to execute.",
                     },
-                    "see_output": {
+                    "review_output": {
                         "type": "boolean",
-                        "description": "Send command output back for a follow-up reply. Default: false.",
+                        "description": (
+                            "Send full stdout+stderr back to you for a follow-up reply. "
+                            "Default: false."
+                        ),
+                    },
+                    "review_output_stderr": {
+                        "type": "boolean",
+                        "description": (
+                            "Send only stderr back to you for a follow-up reply. "
+                            "Useful for checking if a command produced errors. "
+                            "Default: false."
+                        ),
                     },
                 },
                 "required": ["command"],

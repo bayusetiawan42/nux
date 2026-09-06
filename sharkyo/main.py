@@ -86,6 +86,13 @@ def main() -> None:
         name = tc.function.name
         f_args = json.loads(tc.function.arguments)
 
+        tool_output, should_continue = run_tool(name, f_args)
+
+        if not should_continue:
+            if text_reply:
+                history_mgr.append_assistant(text_reply)
+            break
+
         # Save assistant message with clean tool_calls (no pydantic objects)
         history_mgr.append_assistant(text_reply or None, tool_calls)
         messages.append({
@@ -103,15 +110,11 @@ def main() -> None:
             ],
         })
 
-        tool_output, should_continue = run_tool(name, f_args)
-
-        if not should_continue:
-            break
-
         tool_msg = {
             "role": "tool",
             "tool_call_id": tc.id,
-            "content": tool_output,
+            "content": tool_output or "",
         }
         messages.append(tool_msg)
-        history_mgr.append_tool_result(tc.id, tool_output)
+        history_mgr.append_tool_result(tc.id, tool_output or "")
+

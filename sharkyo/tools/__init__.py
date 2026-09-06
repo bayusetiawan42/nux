@@ -2,14 +2,13 @@
 
 from sharkyo.config import Config
 from sharkyo.display import print_error
-from sharkyo.tools import cmd, knowledge, skill, webfetch, websearch
+from sharkyo.tools import cmd, knowledge, skill, websearch
 
 TOOLS_SCHEMA = [
     cmd.SCHEMA,
     knowledge.SCHEMA,
     skill.SCHEMA,
     websearch.SCHEMA,
-    webfetch.SCHEMA,
 ]
 
 _REGISTRY = {
@@ -17,7 +16,6 @@ _REGISTRY = {
     "KNOWLEDGE": knowledge.execute,
     "SKILL": skill.execute,
     "WEBSEARCH": websearch.execute,
-    "WEBFETCH": webfetch.execute,
 }
 
 

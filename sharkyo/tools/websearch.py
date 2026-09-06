@@ -1,4 +1,4 @@
-"""Web search tool using DuckDuckGo Lite + BeautifulSoup."""
+"""Web search + fetch tool — DuckDuckGo search with automatic page reading."""
 
 import re
 import urllib.parse
@@ -16,29 +16,34 @@ _USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/124.0.0.0 Safari/537.36"
 )
-_TIMEOUT = 8
-_DEFAULT_MAX_RESULTS = 5
+_TIMEOUT = 10
+_MAX_SEARCH_RESULTS = 5
+_MAX_PAGE_CHARS = 5000
 _MAX_SNIPPET_CHARS = 300
+
+# Tags to strip entirely (no text extracted)
+_DISCARD_TAGS = {
+    "script", "style", "noscript", "head", "meta", "link",
+    "header", "footer", "nav", "aside", "form", "button",
+    "iframe", "svg", "img",
+}
 
 SCHEMA = {
     "type": "function",
     "function": {
         "name": "WEBSEARCH",
         "description": (
-            "Search the web for information using DuckDuckGo. "
-            "Returns a list of titles, URLs, and short snippets from search results. "
-            "Use this when the user asks for current information, facts, news, or anything you are not sure about."
+            "Search the web or fetch a specific page. "
+            "If 'query' is a URL (starts with http:// or https://), fetches that page directly and returns clean text. "
+            "If 'query' is keywords, searches DuckDuckGo and automatically reads the top result page plus search snippets. "
+            "Use this for any question requiring current information, facts, news, or reading a webpage."
         ),
         "parameters": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "The search query string.",
-                },
-                "max_results": {
-                    "type": "integer",
-                    "description": "Maximum number of results to return (default: 5, max: 10).",
+                    "description": "A URL to fetch directly, or search keywords to look up on the web.",
                 },
             },
             "required": ["query"],
@@ -48,14 +53,69 @@ SCHEMA = {
 
 
 @dataclass
-class SearchResult:
+class _SearchResult:
     title: str
     url: str
     snippet: str
 
 
-def _fetch_ddg(query: str) -> str:
-    """POST query to DuckDuckGo Lite and return raw HTML."""
+def _is_url(text: str) -> bool:
+    return text.startswith("http://") or text.startswith("https://")
+
+
+def _fetch_html(url: str) -> str:
+    """Fetch raw HTML from a URL with automatic decompression."""
+    import gzip
+    import zlib
+
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": _USER_AGENT,
+            "Accept-Language": "id,en-US;q=0.9,en;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Encoding": "gzip, deflate",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
+        content_type = resp.headers.get("Content-Type", "")
+        if "text/html" not in content_type and "text/plain" not in content_type:
+            raise ValueError(f"Unsupported content type: {content_type}")
+        raw = resp.read()
+        encoding = resp.headers.get("Content-Encoding", "").lower()
+        if "gzip" in encoding:
+            raw = gzip.decompress(raw)
+        elif "deflate" in encoding:
+            raw = zlib.decompress(raw)
+        return raw.decode("utf-8", errors="replace")
+
+
+def _extract_text(html: str) -> str:
+    """Strip HTML and return clean readable text from page."""
+    soup = BeautifulSoup(html, "html.parser")
+
+    for tag in soup.find_all(_DISCARD_TAGS):
+        tag.decompose()
+
+    # Prefer semantic main content areas
+    main = (
+        soup.find("main")
+        or soup.find("article")
+        or soup.find(id="content")
+        or soup.find(id="main")
+        or soup.find(class_="content")
+        or soup.find(class_="article")
+        or soup.body
+        or soup
+    )
+
+    text = main.get_text(separator="\n", strip=True)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    return text or "(No readable content found on this page)"
+
+
+def _ddg_search(query: str) -> list[_SearchResult]:
+    """Search DuckDuckGo Lite and return parsed results."""
     data = urllib.parse.urlencode({"q": query}).encode()
     req = urllib.request.Request(
         _DDG_LITE_URL,
@@ -67,33 +127,21 @@ def _fetch_ddg(query: str) -> str:
         },
     )
     with urllib.request.urlopen(req, timeout=_TIMEOUT) as resp:
-        return resp.read().decode("utf-8", errors="replace")
+        html = resp.read().decode("utf-8", errors="replace")
 
-
-def _parse_results(html: str, max_results: int) -> list[SearchResult]:
-    """Parse DuckDuckGo Lite HTML into SearchResult objects.
-
-    DDG Lite structure (per result, 4 rows):
-      Row 0: number cell | title cell (plain text)
-      Row 1: empty       | snippet cell (class=result-snippet)
-      Row 2: empty       | url cell (plain text, www.example.com/...)
-      Row 3: empty       | empty (spacer)
-    """
     soup = BeautifulSoup(html, "html.parser")
     rows = soup.select("tr")
-    results: list[SearchResult] = []
+    results: list[_SearchResult] = []
     i = 0
 
-    while i < len(rows) and len(results) < max_results:
+    while i < len(rows) and len(results) < _MAX_SEARCH_RESULTS:
         row = rows[i]
         tds = row.find_all("td")
         if len(tds) < 2:
             i += 1
             continue
 
-        # First cell: row number like "1."
-        first_text = tds[0].get_text(strip=True)
-        if not re.match(r"^\d+\.$", first_text):
+        if not re.match(r"^\d+\.$", tds[0].get_text(strip=True)):
             i += 1
             continue
 
@@ -102,60 +150,84 @@ def _parse_results(html: str, max_results: int) -> list[SearchResult]:
             i += 1
             continue
 
-        # Row i+1: snippet
         snippet = ""
         if i + 1 < len(rows):
-            snippet_row = rows[i + 1].find("td", class_="result-snippet")
-            if snippet_row:
-                snippet = snippet_row.get_text(" ", strip=True)[:_MAX_SNIPPET_CHARS]
+            snippet_cell = rows[i + 1].find("td", class_="result-snippet")
+            if snippet_cell:
+                snippet = snippet_cell.get_text(" ", strip=True)[:_MAX_SNIPPET_CHARS]
 
-        # Row i+2: url
         url = ""
         if i + 2 < len(rows):
             url_tds = rows[i + 2].find_all("td")
             if len(url_tds) >= 2:
-                raw_url = url_tds[1].get_text(strip=True)
-                if raw_url:
-                    url = raw_url if raw_url.startswith("http") else f"https://{raw_url}"
+                raw = url_tds[1].get_text(strip=True)
+                if raw:
+                    url = raw if raw.startswith("http") else f"https://{raw}"
 
-        results.append(SearchResult(title=title, url=url, snippet=snippet))
-        i += 4  # jump to next result block
+        if title and url:
+            results.append(_SearchResult(title=title, url=url, snippet=snippet))
+        i += 4
 
     return results
 
 
-def _format_for_model(results: list[SearchResult], query: str) -> str:
-    """Format results as structured text for the model."""
-    if not results:
-        return f"No results found for: {query}"
-
-    lines = [f"Web search results for: {query}\n"]
-    for idx, r in enumerate(results, 1):
-        lines.append(f"[{idx}] {r.title}")
-        if r.url:
-            lines.append(f"    URL: {r.url}")
-        if r.snippet:
-            lines.append(f"    {r.snippet}")
-        lines.append("")
-
-    return "\n".join(lines).strip()
-
-
 def execute(args: dict, config: Config | None = None) -> tuple[str, bool]:
-    """Execute a web search and return formatted results to the model."""
+    """Execute WEBSEARCH: fetch URL directly, or search DDG and fetch top result."""
     query = args.get("query", "").strip()
     if not query:
         return "Error: 'query' parameter is required.", True
 
-    max_results = min(int(args.get("max_results", _DEFAULT_MAX_RESULTS)), 10)
+    # Case 1: Direct URL → fetch page immediately
+    if _is_url(query):
+        print_info(f"Fetching: [bold cyan]{query}[/bold cyan]")
+        try:
+            html = _fetch_html(query)
+            text = _extract_text(html)
+        except Exception as e:
+            print_error(f"Fetch failed: {e}")
+            return f"Failed to fetch {query}: {e}", True
+
+        if len(text) > _MAX_PAGE_CHARS:
+            text = text[:_MAX_PAGE_CHARS] + f"\n\n[Content truncated at {_MAX_PAGE_CHARS} chars]"
+        return f"Page content from {query}:\n\n{text}", True
+
+    # Case 2: Keywords → search DDG, fetch top result + show snippets
     print_info(f"Searching: [bold cyan]{query}[/bold cyan]")
-
     try:
-        html = _fetch_ddg(query)
-        results = _parse_results(html, max_results)
+        results = _ddg_search(query)
     except Exception as e:
-        print_error(f"Web search failed: {e}")
-        return f"Web search failed: {e}", True
+        print_error(f"Search failed: {e}")
+        return f"Search failed: {e}", True
 
-    output = _format_for_model(results, query)
-    return output, True
+    if not results:
+        return f"No results found for: {query}", True
+
+    top = results[0]
+    print_info(f"Reading: [bold cyan]{top.url}[/bold cyan]")
+
+    top_text = ""
+    try:
+        html = _fetch_html(top.url)
+        top_text = _extract_text(html)
+        if len(top_text) > _MAX_PAGE_CHARS:
+            top_text = top_text[:_MAX_PAGE_CHARS] + f"\n\n[Content truncated at {_MAX_PAGE_CHARS} chars]"
+    except Exception as e:
+        top_text = f"(Could not load full page: {e})"
+
+    # Combine top result full content with other results snippets
+    output_parts = [
+        f"=== Top Result Content: {top.title} ===",
+        f"URL: {top.url}",
+        "",
+        top_text,
+        "",
+        "=== Other Search Results (Snippets) ===",
+    ]
+    for idx, r in enumerate(results[1:], 2):
+        output_parts.append(f"[{idx}] {r.title}")
+        output_parts.append(f"    URL: {r.url}")
+        if r.snippet:
+            output_parts.append(f"    {r.snippet}")
+        output_parts.append("")
+
+    return "\n".join(output_parts).strip(), True

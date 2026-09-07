@@ -4,26 +4,23 @@
 import sys
 
 from sharkyo.cli import main as run_cli
-from sharkyo.constants import setup_dirs
-from sharkyo.display import print_error
-from sharkyo.request_manager import SharkyoError
+from sharkyo.core.constants import setup_dirs
+from sharkyo.core.errors import SharkyoError
+from sharkyo.ui.display import print_error
 
 
 def main() -> None:
-    # Parse CLI input and run Sharkyo.
     setup_dirs()
     prompt = run_cli()
 
-    # Fast path: hand the prompt to the background daemon (warm imports, warm
-    # DB). Falls back to running in-process when the daemon is unavailable.
-    from sharkyo.client import run_remote
+    from sharkyo.server.client import run_remote
 
     exit_code = run_remote(prompt)
     if exit_code is not None:
         sys.exit(exit_code)
 
     try:
-        from sharkyo.agent import Agent
+        from sharkyo.core.agent import Agent
 
         Agent().run(prompt)
     except SharkyoError as e:

@@ -3,17 +3,11 @@
 
 from collections.abc import Callable
 
-from sharkyo.config import Config
-from sharkyo.display import print_error
+from sharkyo.core.config import Config
 from sharkyo.tools import cmd, knowledge, questionary, skill
 from sharkyo.tools.result import ToolResult
-
-TOOLS_SCHEMA = [
-    cmd.SCHEMA,
-    knowledge.SCHEMA,
-    skill.SCHEMA,
-    questionary.SCHEMA,
-]
+from sharkyo.tools.schema import TOOLS_SCHEMA as TOOLS_SCHEMA
+from sharkyo.ui.display import print_error
 
 _REGISTRY: dict[str, Callable[..., ToolResult]] = {
     "CMD":         cmd.execute,
@@ -24,8 +18,6 @@ _REGISTRY: dict[str, Callable[..., ToolResult]] = {
 
 
 def dispatch_tool(name: str, args: dict, config: Config) -> ToolResult:
-    # Dispatch a tool call by name to its handler.
-    # Returns a ToolResult — never raises.
     handler = _REGISTRY.get(name)
     if not handler:
         print_error(f"Unknown tool requested: {name}")

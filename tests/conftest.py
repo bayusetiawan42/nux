@@ -8,8 +8,11 @@ import pytest
 @pytest.fixture(autouse=True)
 def isolated_db(monkeypatch, tmp_path):
     # Point the app DB (and the keyring fallback dir) at a temp location per test.
-    monkeypatch.setattr("sharkyo.db.DB_FILE", str(tmp_path / "data.db"))
-    monkeypatch.setattr("sharkyo.apikeys.SHARKYO_DIR", str(tmp_path))
+    monkeypatch.setattr("sharkyo.storage.db.DB_FILE", str(tmp_path / "data.db"))
+    monkeypatch.setattr("sharkyo.core.constants.SHARKYO_DIR", str(tmp_path))
+    # Reset the schema initialization tracker so each test gets a fresh DB.
+    import sharkyo.storage.db
+    monkeypatch.setattr(sharkyo.storage.db, "_initialized_file", None)
 
 
 @pytest.fixture(autouse=True)

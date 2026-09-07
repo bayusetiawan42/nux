@@ -5,14 +5,13 @@ import argparse
 import sys
 import time
 
-from sharkyo.apikeys import add_key, list_keys
-from sharkyo.display import console, print_error, print_info, print_success
-from sharkyo.history import HistoryManager
-from sharkyo.knowledge import KnowledgeManager
+from sharkyo.storage.apikeys import add_key, list_keys
+from sharkyo.storage.history import HistoryManager
+from sharkyo.storage.knowledge import KnowledgeManager
+from sharkyo.ui.display import console, print_error, print_info, print_success
 
 
 def build_parser() -> argparse.ArgumentParser:
-    # Build the Sharkyo CLI parser.
     parser = argparse.ArgumentParser(
         prog="sharkyo",
         description="Shark, yo. Operate the system!",
@@ -35,7 +34,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _mask_key(key: str) -> str:
-    # Mask an API key for safe display, preserving only a few chars at each end.
     if len(key) <= 12:
         return key[:3] + "..." + key[-2:]
     return key[:6] + "..." + key[-4:]
@@ -72,11 +70,8 @@ def _print_knowledge() -> None:
 
 
 def _handle_server(argv: list[str] | None) -> int | None:
-    # Handle the `sharkyo server <start|stop|status>` subcommand.
-    # Returns an exit code to use, or None to continue into agent dispatch.
     sub = argv[0] if argv else "start"
-    from sharkyo import client
-    from sharkyo.server import running, stop
+    from sharkyo.server import running, start_daemon, stop
 
     if sub == "status":
         if running():
@@ -96,8 +91,7 @@ def _handle_server(argv: list[str] | None) -> int | None:
         if running():
             print_info("sharkyo server is already running.")
             return 0
-        client.start_daemon()
-        # Wait briefly for the daemon to bind its socket before reporting.
+        start_daemon()
         for _ in range(40):
             if running():
                 print_success("sharkyo server started.")
@@ -112,7 +106,6 @@ def _handle_server(argv: list[str] | None) -> int | None:
 
 
 def main() -> str:
-    # Parse CLI args and handle flags. Returns the user prompt (non-empty).
     args = build_parser().parse_args()
 
     if args.add_key:
@@ -149,7 +142,6 @@ def main() -> str:
 
     prompt = " ".join(args.prompt).strip()
 
-    # `sharkyo server <start|stop|status>` — the first free argument names it.
     if prompt == "server":
         sys.exit(_handle_server([]))
     if prompt.startswith("server "):

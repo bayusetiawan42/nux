@@ -1,10 +1,5 @@
 # tools/cmd.py
 # Shell command execution tool.
-#
-# Every command runs through a pseudo-terminal so output streams to the
-# user live (long-running processes included), stdin can be forwarded to
-# prompt-based commands, and a bounded transcript of the last
-# `cmd_out_chars` bytes is kept for the model to review afterwards.
 
 import os
 import pty
@@ -17,9 +12,9 @@ from dataclasses import dataclass
 
 import questionary
 
-from sharkyo.config import Config
-from sharkyo.display import QUESTIONARY_STYLE_SPEC, console, is_interactive, print_info
+from sharkyo.core.config import Config
 from sharkyo.tools.result import ToolResult
+from sharkyo.ui.display import QUESTIONARY_STYLE_SPEC, console, is_interactive, print_info
 
 SCHEMA = {
     "type": "function",
@@ -67,7 +62,6 @@ _CONFIRM_STYLE = questionary.Style(QUESTIONARY_STYLE_SPEC)
 
 @dataclass
 class CmdArgs:
-    # Typed args for the CMD tool.
     command: str
     review_output: bool = False
     review_output_stderr: bool = False
@@ -83,9 +77,6 @@ class CmdArgs:
 
 @dataclass
 class _RunResult:
-    # Result of a shell command execution.
-    # `stdout` holds the merged pty transcript; stderr is not separable
-    # through a pty and is always empty here.
     stdout: str
     stderr: str
     returncode: int
@@ -93,8 +84,6 @@ class _RunResult:
 
 
 class _Tail:
-    # Bounded byte buffer that keeps only the most recent `limit` bytes.
-    # Backed by a chunk deque so arbitrarily large outputs stay cheap.
     __slots__ = ("_parts", "_total", "limit")
 
     def __init__(self, limit: int) -> None:
@@ -110,7 +99,6 @@ class _Tail:
         while self._total > self.limit and self._parts:
             head = self._parts[0]
             if len(self._parts) == 1:
-                # Single oversized chunk — keep only its tail slice.
                 self._parts[0] = head[-self.limit:]
                 self._total = min(len(head), self.limit)
                 break
@@ -127,7 +115,6 @@ class _Tail:
 
 
 def _exec_shell(command: str) -> int:
-    # Exec the command inside the forked child. Never returns on success.
     try:
         os.execvp("sh", ["sh", "-c", command])
     except OSError:
@@ -136,7 +123,6 @@ def _exec_shell(command: str) -> int:
 
 
 def _terminate(pid: int) -> None:
-    # Terminate the command's process group, escalating to SIGKILL.
     for sig in (signal.SIGTERM, signal.SIGKILL):
         try:
             os.killpg(pid, sig)
@@ -155,16 +141,6 @@ def _run_pty(
     timeout: float = 0.0,
     forward_stdin: bool | None = None,
 ) -> _RunResult:
-    # Run `command` through a pseudo-terminal.
-    #
-    # - Child output streams to the real stdout live (when stream=True) and
-    #   the last buf_limit bytes are buffered as a transcript.
-    # - Real stdin is forwarded to the child when forward_stdin is set
-    #   (default: only when our stdin is a terminal, so prompt-based commands
-    #   like sudo or gh auth login can be answered).
-    # - SIGINT/SIGTERM/SIGHUP are forwarded to the child's process group so
-    #   Ctrl-C cancels long-running commands.
-    # - When timeout > 0, the command is killed after that many seconds.
     if forward_stdin is None:
         forward_stdin = sys.stdin.isatty()
 
@@ -188,8 +164,6 @@ def _run_pty(
     }
 
     def _forward(signum: int, frame: object) -> None:
-        # Interrupt chars first (faithful Ctrl-C on the child's pty),
-        # then the signal itself to the child process group.
         try:
             os.write(master_fd, b"\x03" if signum == signal.SIGINT else b"")
         except OSError:
@@ -252,7 +226,6 @@ def _run_pty(
         if timed_out:
             _terminate(pid)
         else:
-            # Drain whatever is left after the child closed its end.
             while True:
                 try:
                     data = os.read(master_fd, 4096)
@@ -291,7 +264,6 @@ def _run_pty(
 
 
 def _truncate(text: str, char_limit: int, label: str = "output") -> str:
-    # Truncate text to char_limit, keeping head and tail with a middle marker.
     if len(text) <= char_limit:
         return text
     head_chars = char_limit // 3
@@ -300,7 +272,6 @@ def _truncate(text: str, char_limit: int, label: str = "output") -> str:
 
 
 def execute(args: dict, config: Config) -> ToolResult:
-    # Execute a shell command with user confirmation and live-streamed display.
     parsed = CmdArgs.from_dict(args)
 
     console.print(f"\n  [bold cyan]![/bold cyan] Wants to run: [cyan]{parsed.command}[/cyan]")
@@ -324,8 +295,6 @@ def execute(args: dict, config: Config) -> ToolResult:
         print_info("Cancelled.")
         return ToolResult(output=None, should_continue=False)
 
-    # Ensure the confirmation text is on screen before the child's output
-    # starts streaming through the raw file descriptor.
     sys.stdout.flush()
 
     result = _run_pty(parsed.command, buf_limit=config.cmd_out_chars, timeout=config.cmd_timeout)
@@ -336,7 +305,6 @@ def execute(args: dict, config: Config) -> ToolResult:
         elif result.returncode not in (0,):
             console.print(f"\n  [red]![/red] Command exited with code {result.returncode}.")
 
-    # Determine what (if anything) to send back to the model.
     if parsed.review_output:
         return ToolResult(
             output=_truncate(result.stdout, config.cmd_out_chars),

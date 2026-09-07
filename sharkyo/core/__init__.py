@@ -1,5 +1,7 @@
-# sharkyo/request_manager.py
-# Backward-compat re-export. Import from sharkyo.core.request_manager instead.
+# core/__init__.py
+# Core package: agent, config, constants, errors, and shared utilities.
+
+from sharkyo.core.config import Config, load_config
 from sharkyo.core.errors import (
     AllKeysRateLimitedError,
     APIRequestError,
@@ -7,13 +9,13 @@ from sharkyo.core.errors import (
     NoAPIKeyError,
     SharkyoError,
 )
-from sharkyo.core.request_manager import RequestManager
 
 __all__ = [
     "APIRequestError",
     "AllKeysRateLimitedError",
     "AuthenticationFailedError",
+    "Config",
     "NoAPIKeyError",
-    "RequestManager",
     "SharkyoError",
+    "load_config",
 ]

@@ -3,10 +3,10 @@
 
 from dataclasses import dataclass
 
-from sharkyo.config import Config
-from sharkyo.display import print_info
+from sharkyo.core.config import Config
 from sharkyo.search import search_skills
 from sharkyo.tools.result import ToolResult
+from sharkyo.ui.display import print_info
 
 SCHEMA = {
     "type": "function",
@@ -33,7 +33,6 @@ SCHEMA = {
 
 @dataclass
 class SkillArgs:
-    # Typed args for the SKILL tool.
     query: str
 
     @classmethod
@@ -42,7 +41,6 @@ class SkillArgs:
 
 
 def execute(args: dict, config: Config | None = None) -> ToolResult:
-    # Execute skill search and return the guide text to the model.
     parsed = SkillArgs.from_dict(args)
     if not parsed.query:
         return ToolResult(

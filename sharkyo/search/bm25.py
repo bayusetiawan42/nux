@@ -1,43 +1,32 @@
-# search.py
-# Lightweight BM25 search engine for internal skills.
+# search/bm25.py
+# Portable BM25 search engine. No Sharkyo-specific dependencies.
 
 import math
 import re
-from dataclasses import dataclass
 from pathlib import Path
 
-from sharkyo.constants import SKILLS_DIR
+from sharkyo.search.result import SearchResult
 
 
-@dataclass
-class SearchResult:
-    # Represents a matched skill document.
-    name: str
-    title: str
-    content: str
-    score: float
-
-
-def _tokenize(text: str) -> list[str]:
-    # Tokenize text into lowercase alphanumeric words.
+def tokenize(text: str) -> list[str]:
     return re.findall(r"\b\w+\b", text.lower())
 
 
 class BM25Searcher:
-    # In-memory BM25 ranker over skill markdown files.
 
     def __init__(
         self,
-        skills_dir: str | None = None,
+        documents_dir: str | Path | None = None,
         k1: float = 1.5,
         b: float = 0.75,
+        glob_pattern: str = "*.md",
     ) -> None:
-        self.skills_dir = Path(skills_dir or SKILLS_DIR)
+        self.documents_dir = Path(documents_dir) if documents_dir else None
         self.k1 = k1
         self.b = b
+        self.glob_pattern = glob_pattern
 
     def _extract_title(self, content: str, default: str) -> str:
-        # Extract the first Markdown header, or fall back to the filename stem.
         for line in content.splitlines():
             line = line.strip()
             if line.startswith("#"):
@@ -50,17 +39,15 @@ class BM25Searcher:
         top_k: int = 3,
         min_score: float = 0.1,
     ) -> list[SearchResult]:
-        # Search skill documents using BM25 ranking.
-        query_tokens = _tokenize(query)
-        if not query_tokens or not self.skills_dir.exists():
+        query_tokens = tokenize(query)
+        if not query_tokens or not self.documents_dir or not self.documents_dir.exists():
             return []
 
-        # Load all skill documents from disk.
         docs: list[dict] = []
         doc_lengths: list[int] = []
         doc_freqs: dict[str, int] = {}
 
-        for file_path in sorted(self.skills_dir.glob("*.md")):
+        for file_path in sorted(self.documents_dir.glob(self.glob_pattern)):
             try:
                 content = file_path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
@@ -68,8 +55,7 @@ class BM25Searcher:
 
             stem = file_path.stem
             title = self._extract_title(content, stem)
-            # Give the title double weight by repeating it in the token stream.
-            tokens = _tokenize(f"{title} {title} {content}")
+            tokens = tokenize(f"{title} {title} {content}")
             doc_len = len(tokens)
             if doc_len == 0:
                 continue
@@ -105,7 +91,6 @@ class BM25Searcher:
                 if qt not in doc["tf"]:
                     continue
                 df = doc_freqs.get(qt, 0)
-                # BM25 IDF with +1 smoothing to avoid log(0).
                 idf = math.log((n_docs - df + 0.5) / (df + 0.5) + 1.0)
                 f = doc["tf"][qt]
                 numerator = f * (self.k1 + 1.0)
@@ -124,13 +109,3 @@ class BM25Searcher:
 
         results.sort(key=lambda r: r.score, reverse=True)
         return results[:top_k]
-
-
-def search_skills(query: str, top_k: int = 1) -> str | None:
-    # Convenience function: search skills and return a formatted guide string, or None.
-    searcher = BM25Searcher()
-    matches = searcher.search(query, top_k=top_k)
-    if not matches:
-        return None
-    top = matches[0]
-    return f"### Skill Guide: {top.title} ({top.name})\n\n{top.content.strip()}"

@@ -1,13 +1,13 @@
 # tools/questionary.py
-# Interactive questionary tool — ask the user structured questions.
+# Interactive questionary tool.
 
 from dataclasses import dataclass, field
 
 import questionary as q
 
-from sharkyo.config import Config
-from sharkyo.display import QUESTIONARY_STYLE_SPEC, console, is_interactive, print_info
+from sharkyo.core.config import Config
 from sharkyo.tools.result import ToolResult
+from sharkyo.ui.display import QUESTIONARY_STYLE_SPEC, console, is_interactive, print_info
 
 SCHEMA = {
     "type": "function",
@@ -78,7 +78,6 @@ _CANCELLED = ToolResult(output="User cancelled the questionary.", should_continu
 
 @dataclass
 class QuestionSpec:
-    # Typed representation of a single question in the QUESTIONARY tool.
     key: str
     type: str
     message: str
@@ -98,7 +97,6 @@ class QuestionSpec:
 
 @dataclass
 class QuestionaryArgs:
-    # Typed args for the QUESTIONARY tool.
     intro: str
     questions: list[QuestionSpec]
 
@@ -111,7 +109,6 @@ class QuestionaryArgs:
 
 
 def _ask_one(spec: QuestionSpec) -> object | None:
-    # Dispatch a single question by type. Returns None if user cancelled.
     if spec.type == "text":
         kwargs: dict = {"style": _STYLE}
         if spec.default:
@@ -135,12 +132,10 @@ def _ask_one(spec: QuestionSpec) -> object | None:
             return []
         return q.checkbox(spec.message, choices=spec.choices, style=_STYLE).ask()
 
-    # Fallback for unknown types.
     return q.text(spec.message, style=_STYLE).ask()
 
 
 def _format_answer(value: object) -> str:
-    # Format an answer value as a human-readable string for the model.
     if isinstance(value, list):
         return ", ".join(value) if value else "(none selected)"
     if isinstance(value, bool):
@@ -149,7 +144,6 @@ def _format_answer(value: object) -> str:
 
 
 def execute(args: dict, config: Config | None = None) -> ToolResult:
-    # Spawn interactive questions and return all answers to the model.
     parsed = QuestionaryArgs.from_dict(args)
 
     if not parsed.questions:
@@ -179,7 +173,6 @@ def execute(args: dict, config: Config | None = None) -> ToolResult:
             return _CANCELLED
 
         if answer is None and spec.type not in ("select", "checkbox"):
-            # None from .ask() means the user hit Ctrl-C.
             print_info("Questionary cancelled.")
             return _CANCELLED
 

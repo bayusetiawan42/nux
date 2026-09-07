@@ -3,10 +3,10 @@
 
 from dataclasses import dataclass
 
-from sharkyo.config import Config
-from sharkyo.display import print_success
-from sharkyo.knowledge import KnowledgeManager
+from sharkyo.core.config import Config
+from sharkyo.storage.knowledge import KnowledgeManager
 from sharkyo.tools.result import ToolResult
+from sharkyo.ui.display import print_success
 
 SCHEMA = {
     "type": "function",
@@ -44,7 +44,6 @@ SCHEMA = {
 
 @dataclass
 class KnowledgeArgs:
-    # Typed args for the KNOWLEDGE tool.
     op: str
     key: str = ""
     value: str = ""
@@ -59,7 +58,6 @@ class KnowledgeArgs:
 
 
 def execute(args: dict, config: Config | None = None) -> ToolResult:
-    # Execute knowledge operations: set, get, list, delete.
     parsed = KnowledgeArgs.from_dict(args)
     km = KnowledgeManager()
 

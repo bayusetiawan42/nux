@@ -1,5 +1,6 @@
-# sharkyo/display.py
-# Backward-compat re-export. Import from sharkyo.ui.display instead.
+# ui/__init__.py
+# Display utilities for Sharkyo.
+
 from sharkyo.ui.display import (
     QUESTIONARY_STYLE_SPEC,
     console,

@@ -4,8 +4,8 @@
 import sqlite3
 import time
 
-import sharkyo.db
-from sharkyo import apikeys
+import sharkyo.storage.db
+from sharkyo.storage import apikeys
 
 
 def test_add_and_list(fake_keyring):
@@ -18,7 +18,7 @@ def test_add_and_list(fake_keyring):
     assert apikeys.active_key().key == "secret-1"
 
     # Raw secrets must never live in the database, only a keyring reference.
-    rows = sqlite3.connect(sharkyo.db.DB_FILE).execute(
+    rows = sqlite3.connect(sharkyo.storage.db.DB_FILE).execute(
         "SELECT key_ref, storage FROM apikeys ORDER BY id"
     ).fetchall()
     assert all(k not in ("secret-1", "secret-2") for k, _ in rows)

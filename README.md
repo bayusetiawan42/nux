@@ -49,7 +49,7 @@ Sharkyo has four tools. That's it.
 
 | Tool | What it does |
 |---|---|
-| `CMD` | Runs a shell command on your machine. Always asks for confirmation first. |
+| `CMD` | Runs a shell command on your machine. Output streams live; always asks for confirmation first. |
 | `KNOWLEDGE` | Stores and recalls persistent facts about you across sessions. |
 | `SKILL` | Looks up internal guides for tasks that need specific execution steps. |
 | `QUESTIONARY` | Asks you interactive questions when a request needs clarification before acting. |
@@ -96,8 +96,8 @@ model        = openai/gpt-oss-120b
 max_history  = 12
 max_tokens   = 512
 temperature  = 0.7
-cmd_out_lines = 30
 cmd_out_chars = 3000
+cmd_timeout   = 0
 ```
 
 Supports `key = value`, `key: value`, or `set key value` syntax. Lines starting with `#` are ignored.

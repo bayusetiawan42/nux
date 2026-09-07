@@ -17,7 +17,7 @@ class Config:
     model: str = "openai/gpt-oss-120b"
     max_history: int = 12
     cmd_out_chars: int = 3000
-    cmd_out_lines: int = 30
+    cmd_timeout: float = 0.0  # 0 = no timeout; seconds before a command is killed
     temperature: float = 0.7
     max_tokens: int = 512
 

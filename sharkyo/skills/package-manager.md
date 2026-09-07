@@ -4,7 +4,7 @@ Use this skill when the user wants to install, remove, update, or search for sys
 
 ## Execution Strategy
 
-Detect the package manager from the OS. Use `apt` for Debian/Ubuntu, `dnf`/`yum` for Fedora/RHEL/CentOS, `pacman` for Arch. Always set `interactive: true` for install/remove since they may need sudo password.
+Detect the package manager from the OS. Use `apt` for Debian/Ubuntu, `dnf`/`yum` for Fedora/RHEL/CentOS, `pacman` for Arch. Commands run through a pty, so sudo password prompts can be answered in the user's terminal.
 
 ### Detect package manager
 
@@ -124,8 +124,8 @@ sudo pacman -Syu --noconfirm
 
 ## Parameters
 
-- For all install/remove/upgrade commands: set `interactive: true` (sudo password prompt).
-- For search/info commands: `interactive: false`, `review_output: true`.
+- For all install/remove/upgrade commands: run them directly — sudo may prompt in the terminal, which is forwarded via the pty.
+- For search/info commands: `review_output: true`.
 - If the user doesn't specify package manager, detect it first with the detect command above (`review_output: true`), then install accordingly.
 
 ## Example
@@ -137,7 +137,6 @@ sudo pacman -Syu --noconfirm
     "name": "CMD",
     "arguments": {
       "command": "sudo apt install -y ffmpeg",
-      "interactive": true,
       "review_output_stderr": true
     }
   }

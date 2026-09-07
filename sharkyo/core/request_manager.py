@@ -30,7 +30,7 @@ _TOOLS_SCHEMA = None
 def _tools_schema() -> list:
     global _TOOLS_SCHEMA
     if _TOOLS_SCHEMA is None:
-        from sharkyo.tools.schema import TOOLS_SCHEMA as schema
+        from sharkyo.tools import TOOLS_SCHEMA as schema
 
         _TOOLS_SCHEMA = schema
     return _TOOLS_SCHEMA

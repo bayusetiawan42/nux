@@ -137,12 +137,13 @@ class Agent:
 
             executed, stopped = self._execute_tools(tool_calls)
 
-            if stopped:
-                if text_reply:
-                    self.history_mgr.append_assistant(text_reply)
-                return
-
+            # Always record the tool call and its output, whether or not the
+            # loop is about to stop — "stopped" only ends the looping, it
+            # doesn't mean the output is thrown away.
             self._record_tool_results(messages, executed, text_reply or "")
+
+            if stopped:
+                return
 
         print_error("Reached maximum tool iterations; stopping.")
         self.history_mgr.append_assistant(text_reply or None)

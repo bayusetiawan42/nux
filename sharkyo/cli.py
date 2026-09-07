@@ -19,7 +19,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "prompt",
         nargs="*",
-        metavar="message",
         help='the task to run, e.g. "compress this folder"',
     )
     parser.add_argument("--add-key", metavar="KEY", help="add an API key (Groq by default)")
@@ -105,32 +104,81 @@ def _handle_server(argv: list[str] | None) -> int | None:
     return 1
 
 
+def _handle_command(argv: list[str] | None) -> int | None:
+    if not argv:
+        print_info("Available commands: keys, clear, knowledge, clear-knowledge, server")
+        print_info("Usage: sharkyo command <name> [args]")
+        return 0
+
+    name = argv[0]
+    cmd_args = argv[1:]
+
+    if name == "keys":
+        _print_keys()
+        return 0
+
+    if name == "clear":
+        HistoryManager().clear()
+        print_success("History cleared.")
+        return 0
+
+    if name == "knowledge":
+        _print_knowledge()
+        return 0
+
+    if name == "clear-knowledge":
+        KnowledgeManager().clear()
+        print_success("All knowledge cleared.")
+        return 0
+
+    if name == "delete-knowledge":
+        if not cmd_args:
+            print_error("Usage: sharkyo command delete-knowledge <key>")
+            return 1
+        deleted = KnowledgeManager().delete(cmd_args[0])
+        if deleted:
+            print_success(f"Deleted knowledge key: {cmd_args[0]}")
+        else:
+            print_error(f"Key not found: {cmd_args[0]}")
+        return 0
+
+    if name == "server":
+        return _handle_server(cmd_args)
+
+    print_error(f"Unknown command: {name}")
+    print_info("Available commands: keys, clear, knowledge, clear-knowledge, delete-knowledge, server")
+    return 1
+
+
 def main() -> str:
     args = build_parser().parse_args()
+
+    # Run all flag-based actions (can combine multiple flags)
+    ran_action = False
 
     if args.add_key:
         provider = args.provider or "groq"
         add_key(args.add_key, provider=provider, base_url=args.base_url)
         print_success(f"API key added (provider={provider}).")
-        sys.exit(0)
+        ran_action = True
 
     if args.keys:
         _print_keys()
-        sys.exit(0)
+        ran_action = True
 
     if args.clear:
         HistoryManager().clear()
         print_success("History cleared.")
-        sys.exit(0)
+        ran_action = True
 
     if args.knowledge:
         _print_knowledge()
-        sys.exit(0)
+        ran_action = True
 
     if args.clear_knowledge:
         KnowledgeManager().clear()
         print_success("All knowledge cleared.")
-        sys.exit(0)
+        ran_action = True
 
     if args.delete_knowledge:
         deleted = KnowledgeManager().delete(args.delete_knowledge)
@@ -138,16 +186,27 @@ def main() -> str:
             print_success(f"Deleted knowledge key: {args.delete_knowledge}")
         else:
             print_error(f"Key not found: {args.delete_knowledge}")
-        sys.exit(0)
+        ran_action = True
 
     prompt = " ".join(args.prompt).strip()
 
-    if prompt == "server":
-        sys.exit(_handle_server([]))
-    if prompt.startswith("server "):
-        sys.exit(_handle_server(prompt[len("server "):].split()))
+    # Handle subcommands: server, command
+    if prompt.startswith("server ") or prompt == "server":
+        parts = prompt.split(None, 1)
+        sys.exit(_handle_server(parts[1].split() if len(parts) > 1 else []))
 
-    if not prompt:
-        build_parser().print_help()
+    if prompt.startswith("command ") or prompt == "command":
+        parts = prompt.split(None, 1)
+        sys.exit(_handle_command(parts[1].split() if len(parts) > 1 else []))
+
+    # If we ran actions but there's no prompt, exit
+    if ran_action and not prompt:
         sys.exit(0)
-    return prompt
+
+    # If there's a prompt, return it for the agent
+    if prompt:
+        return prompt
+
+    # Nothing to do, show help
+    build_parser().print_help()
+    sys.exit(0)

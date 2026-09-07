@@ -36,3 +36,37 @@ def test_empty_prompt_defaults():
     assert args.prompt == []
     assert args.clear is False
     assert args.add_key is None
+
+
+def test_multiple_flags_combined():
+    args = build_parser().parse_args(["--clear", "--clear-knowledge"])
+    assert args.clear is True
+    assert args.clear_knowledge is True
+    assert args.prompt == []
+
+
+def test_double_dash_separator():
+    args = build_parser().parse_args(["--clear", "--", "baterai ku sisa berapa?"])
+    assert args.clear is True
+    assert args.prompt == ["baterai ku sisa berapa?"]
+
+
+def test_double_dash_only():
+    args = build_parser().parse_args(["--clear", "--"])
+    assert args.clear is True
+    assert args.prompt == []
+
+
+def test_command_subcommand():
+    args = build_parser().parse_args(["command", "keys"])
+    assert args.prompt == ["command", "keys"]
+
+
+def test_command_subcommand_with_args():
+    args = build_parser().parse_args(["command", "delete-knowledge", "mykey"])
+    assert args.prompt == ["command", "delete-knowledge", "mykey"]
+
+
+def test_server_subcommand():
+    args = build_parser().parse_args(["server", "status"])
+    assert args.prompt == ["server", "status"]

@@ -1,9 +1,8 @@
 # history.py
-# SQLite-backed chat history management with session isolation.
+# SQLite-backed chat history management.
 
 import json
 import time
-import uuid
 
 from sharkyo.db import get_connection
 
@@ -12,11 +11,9 @@ _DEFAULT_MAX = 12
 
 class HistoryManager:
     # Manages chat messages stored in SQLite, formatted for OpenAI-compatible APIs.
-    # Each HistoryManager instance owns a unique session_id for the current run.
 
     def __init__(self, max_messages: int = _DEFAULT_MAX) -> None:
         self.max_messages = max_messages
-        self.session_id = str(uuid.uuid4())
 
     def load(self) -> list[dict]:
         # Return the most recent messages formatted as clean API message dicts.
@@ -90,9 +87,9 @@ class HistoryManager:
     ) -> None:
         with get_connection() as conn:
             conn.execute(
-                """INSERT INTO history (session_id, role, content, tool_calls, tool_call_id, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (self.session_id, role, content, tool_calls, tool_call_id, int(time.time())),
+                """INSERT INTO history (role, content, tool_calls, tool_call_id, created_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (role, content, tool_calls, tool_call_id, int(time.time())),
             )
             conn.commit()
 

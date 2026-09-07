@@ -1,6 +1,9 @@
 # tools/cmd.py
 # Shell command execution tool.
 
+# TODO: remove interactive parameter, always use pty and create a output buffer
+# useful for long-process commands
+
 import os
 import pty
 import subprocess

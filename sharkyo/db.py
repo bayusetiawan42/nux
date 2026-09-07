@@ -1,11 +1,5 @@
 # db.py
 # Centralized SQLite database connection and schema management.
-#
-# TODO: Future plan — replace open/close-per-call with a persistent connection server.
-# Currently each operation opens and closes its own connection (safe, simple).
-# The planned architecture: a lightweight background server process that initializes
-# the DB once and handles requests via IPC (e.g. Unix socket or named pipe),
-# eliminating per-invocation connection overhead for faster sharkyo startup times.
 
 import sqlite3
 from contextlib import contextmanager
@@ -17,7 +11,6 @@ from sharkyo.constants import DB_FILE
 _SCHEMA_SQL = """
     CREATE TABLE IF NOT EXISTS history (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id   TEXT    NOT NULL,
         role         TEXT    NOT NULL,
         content      TEXT,
         tool_calls   TEXT,
@@ -43,18 +36,17 @@ _SCHEMA_SQL = """
 
 
 def _init_schema(conn: sqlite3.Connection) -> None:
-    # Create all required tables if they do not exist.
+    # Enable WAL mode and create all required tables if they do not exist.
+    conn.execute("PRAGMA journal_mode = WAL;")
     conn.executescript(_SCHEMA_SQL)
     conn.commit()
 
 
 @contextmanager
 def get_connection() -> Generator[sqlite3.Connection, None, None]:
-    # Context manager: opens, yields, and closes a WAL-mode SQLite connection.
-    # Schema is initialized on every open (idempotent via IF NOT EXISTS).
+    # Context manager: opens, yields, and closes a SQLite connection.
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode = WAL;")
     _init_schema(conn)
     try:
         yield conn

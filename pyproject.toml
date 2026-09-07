@@ -16,7 +16,8 @@ dependencies = [
 [project.scripts]
 sharkyo = "sharkyo.main:main"
 
+[tool.setuptools.packages.find]
+include = ["sharkyo*"]
+
 [tool.setuptools.package-data]
-# system_prompt.txt is embedded at build time via build_constants.py.
-# The .txt source is kept for editing; _generated_constants.py is the runtime artifact.
-sharkyo = ["skills/*.md"]
+sharkyo = ["skills/*.md", "skills/*.txt"]

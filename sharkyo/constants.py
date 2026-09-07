@@ -1,16 +1,18 @@
 # constants.py
-# Static path constants for the Sharkyo application.
+# Static paths and text constants for the Sharkyo application.
 # Side effects (makedirs) are intentionally NOT here — call setup_dirs() from main().
 
 import os
+from importlib.resources import files
 
 SHARKYO_DIR: str = os.path.expanduser("~/.sharkyo")
 DB_FILE: str = os.path.join(SHARKYO_DIR, "data.db")
-SKILLS_DIR: str = os.path.join(os.path.dirname(__file__), "skills")
 
-# SYSTEM_PROMPT is imported from the generated module.
-# To regenerate after editing skills/system_prompt.txt, run: python build_constants.py
-from sharkyo._generated_constants import SYSTEM_PROMPT
+_PKG_DIR = files("sharkyo")
+SKILLS_DIR: str = str(_PKG_DIR / "skills")
+SYSTEM_PROMPT: str = (
+    (_PKG_DIR / "skills" / "system_prompt.txt").read_text(encoding="utf-8").rstrip()
+)
 
 __all__ = ["SHARKYO_DIR", "DB_FILE", "SKILLS_DIR", "SYSTEM_PROMPT"]
 

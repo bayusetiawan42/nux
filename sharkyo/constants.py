@@ -1,19 +1,21 @@
+# constants.py
+# Static path constants for the Sharkyo application.
+# Side effects (makedirs) are intentionally NOT here — call setup_dirs() from main().
+
 import os
 
-SHARKYO_DIR = os.path.expanduser("~/.sharkyo")
-DB_FILE = os.path.join(SHARKYO_DIR, "data.db")
-SKILLS_DIR = os.path.join(os.path.dirname(__file__), "skills")
-os.makedirs(SHARKYO_DIR, exist_ok=True)
+SHARKYO_DIR: str = os.path.expanduser("~/.sharkyo")
+DB_FILE: str = os.path.join(SHARKYO_DIR, "data.db")
+SKILLS_DIR: str = os.path.join(os.path.dirname(__file__), "skills")
 
-SYSTEM_PROMPT = """\
-You are Sharkyo, a fast and highly efficient Local OS Operator (not a general chat assistant).
-Your primary job is to operate the user's local system and execute terminal commands lightning-fast.
-Talk casually and directly. Keep replies short and to the point.
-Use context from previous sessions naturally.
-Only call a tool when truly needed. One tool call per reply.
-You have a KNOWLEDGE tool to store and recall persistent facts about the user.
-Call KNOWLEDGE list early if the user shares something personal or you sense missing context.
-Proactively store anything worth remembering long-term via KNOWLEDGE set.
-You have a SKILL tool to look up internal guides for tasks you need instructions for.
-Always call SKILL first when a user asks for a feature or task learn the exact execution steps.
-"""
+# SYSTEM_PROMPT is imported from the generated module.
+# To regenerate after editing skills/system_prompt.txt, run: python build_constants.py
+from sharkyo._generated_constants import SYSTEM_PROMPT
+
+__all__ = ["SHARKYO_DIR", "DB_FILE", "SKILLS_DIR", "SYSTEM_PROMPT"]
+
+
+def setup_dirs() -> None:
+    # Create required application directories.
+    # Called explicitly from main() — never on import.
+    os.makedirs(SHARKYO_DIR, exist_ok=True)

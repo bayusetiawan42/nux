@@ -1,12 +1,13 @@
-"""Sends chat completions using OpenAI SDK with automatic key rotation on rate limits."""
+# request_manager.py
+# Sends chat completions using the OpenAI SDK with automatic key rotation on rate limits.
 
 import sys
 import time
-from typing import Any
 
 from openai import APIConnectionError, APIStatusError, AuthenticationError, OpenAI, RateLimitError
+from openai.types.chat import ChatCompletion
 
-from sharkyo.apikeys import active_key, list_keys, rotate_active, save_rate_limit
+from sharkyo.apikeys import ApiKey, active_key, list_keys, rotate_active, save_rate_limit
 from sharkyo.config import Config, load_config
 from sharkyo.display import print_error, print_info
 from sharkyo.tools import TOOLS_SCHEMA
@@ -15,7 +16,7 @@ _GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
 
 class RequestManager:
-    """Manages LLM API requests and key rotation."""
+    # Manages LLM API requests and transparent key rotation on rate limit errors.
 
     def __init__(self, config: Config | None = None) -> None:
         self.config = config or load_config()
@@ -23,18 +24,24 @@ class RequestManager:
             print_error("No active API key. Add one with: sharkyo --add-key KEY")
             sys.exit(1)
 
-    def _create_client(self, key_info: dict) -> OpenAI:
-        base_url = key_info["base_url"]
-        if base_url is None and key_info["provider"] == "groq":
+    def _create_client(self, key: ApiKey) -> OpenAI:
+        # Build an OpenAI client for the given key, inferring base URL from provider.
+        base_url = key.base_url
+        if base_url is None and key.provider == "groq":
             base_url = _GROQ_BASE_URL
-        return OpenAI(api_key=key_info["key"], base_url=base_url)
+        return OpenAI(api_key=key.key, base_url=base_url)
 
     def _handle_rate_limit(self, exc: RateLimitError, key_id: int) -> None:
-        """Parse rate-limit headers and rotate to the next available API key."""
-        reset_ts = int(time.time()) + 60  # default fallback: 60s
+        # Parse rate-limit headers and mark the key as rate-limited.
+        # Rotate to the next available key, or exit if all are exhausted.
+        reset_ts = int(time.time()) + 60  # Default fallback: 60 seconds.
         try:
             headers = exc.response.headers
-            for header_name in ("retry-after", "x-ratelimit-reset-requests", "x-ratelimit-reset-tokens"):
+            for header_name in (
+                "retry-after",
+                "x-ratelimit-reset-requests",
+                "x-ratelimit-reset-tokens",
+            ):
                 val = headers.get(header_name)
                 if val:
                     num = int(float(val))
@@ -51,19 +58,20 @@ class RequestManager:
             print_error("All configured API keys are currently rate limited. Try again later.")
             sys.exit(1)
 
-    def chat(self, messages: list[dict[str, Any]]) -> Any:
-        """Execute chat completion with automatic retry/rotation across available keys."""
+    def chat(self, messages: list[dict]) -> ChatCompletion:
+        # Execute a chat completion with automatic retry across available keys.
+        # Tries each key at most once before giving up.
         all_keys = list_keys()
         attempts = max(len(all_keys), 1)
 
         for _ in range(attempts):
-            key_info = active_key()
-            if not key_info:
+            key = active_key()
+            if not key:
                 print_error("No active API key found.")
                 sys.exit(1)
 
             try:
-                client = self._create_client(key_info)
+                client = self._create_client(key)
                 return client.chat.completions.create(
                     model=self.config.model,
                     messages=messages,
@@ -73,7 +81,7 @@ class RequestManager:
                     tool_choice="auto",
                 )
             except RateLimitError as e:
-                self._handle_rate_limit(e, key_info["id"])
+                self._handle_rate_limit(e, key.id)
             except AuthenticationError as e:
                 print_error(f"Authentication failed: {e.message}")
                 sys.exit(1)

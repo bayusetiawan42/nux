@@ -1,8 +1,12 @@
-"""Internal skill discovery tool."""
+# tools/skill.py
+# Internal skill discovery tool.
+
+from dataclasses import dataclass
 
 from sharkyo.config import Config
 from sharkyo.display import print_info
 from sharkyo.search import search_skills
+from sharkyo.tools.result import ToolResult
 
 SCHEMA = {
     "type": "function",
@@ -27,15 +31,31 @@ SCHEMA = {
 }
 
 
-def execute(args: dict, config: Config | None = None) -> tuple[str, bool]:
-    """Execute skill search and return guide for the model."""
-    query = args.get("query", "").strip()
-    if not query:
-        return "Error: 'query' parameter is required for SKILL search.", True
+@dataclass
+class SkillArgs:
+    # Typed args for the SKILL tool.
+    query: str
 
-    guide = search_skills(query)
+    @classmethod
+    def from_dict(cls, args: dict) -> "SkillArgs":
+        return cls(query=args.get("query", "").strip())
+
+
+def execute(args: dict, config: Config | None = None) -> ToolResult:
+    # Execute skill search and return the guide text to the model.
+    parsed = SkillArgs.from_dict(args)
+    if not parsed.query:
+        return ToolResult(
+            output="Error: 'query' parameter is required for SKILL search.",
+            should_continue=True,
+        )
+
+    guide = search_skills(parsed.query)
     if guide:
-        print_info(f"Retrieved internal skill for: [bold cyan]{query}[/bold cyan]")
-        return guide, True
+        print_info(f"Retrieved internal skill for: [bold cyan]{parsed.query}[/bold cyan]")
+        return ToolResult(output=guide, should_continue=True)
 
-    return f"No internal skill found matching '{query}'. Proceed using standard tools.", True
+    return ToolResult(
+        output=f"No internal skill found matching '{parsed.query}'. Proceed using standard tools.",
+        should_continue=True,
+    )

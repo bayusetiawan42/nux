@@ -1,9 +1,13 @@
-"""Interactive questionary tool — ask the user structured questions."""
+# tools/questionary.py
+# Interactive questionary tool — ask the user structured questions.
+
+from dataclasses import dataclass, field
 
 import questionary as q
 
 from sharkyo.config import Config
 from sharkyo.display import console, print_info
+from sharkyo.tools.result import ToolResult
 
 SCHEMA = {
     "type": "function",
@@ -21,7 +25,7 @@ SCHEMA = {
             "properties": {
                 "intro": {
                     "type": "string",
-                    "description": "Optional short message shown before the questions (e.g. 'Let me ask a few things first.').",
+                    "description": "Optional short message shown before the questions.",
                 },
                 "questions": {
                     "type": "array",
@@ -31,7 +35,7 @@ SCHEMA = {
                         "properties": {
                             "key": {
                                 "type": "string",
-                                "description": "Short identifier for this answer (e.g. 'project_name', 'use_docker').",
+                                "description": "Short identifier for this answer (e.g. 'project_name').",
                             },
                             "type": {
                                 "type": "string",
@@ -76,79 +80,112 @@ _STYLE = q.Style([
     ("answer",      "fg:#00bcd4 bold"),
 ])
 
+_CANCELLED = ToolResult(output="User cancelled the questionary.", should_continue=False)
 
-def execute(args: dict, config: Config | None = None) -> tuple[str, bool]:
-    """Spawn interactive questions and return answers to the model."""
-    intro = args.get("intro", "").strip()
-    questions = args.get("questions", [])
 
-    if not questions:
-        return "Error: 'questions' list is empty.", True
+@dataclass
+class QuestionSpec:
+    # Typed representation of a single question in the QUESTIONARY tool.
+    key: str
+    type: str
+    message: str
+    choices: list[str] = field(default_factory=list)
+    default: str | None = None
 
-    if intro:
-        console.print(f"\n  [bold cyan]?[/bold cyan] {intro}\n")
+    @classmethod
+    def from_dict(cls, spec: dict) -> "QuestionSpec":
+        return cls(
+            key=spec.get("key", "answer"),
+            type=spec.get("type", "text"),
+            message=spec.get("message", ""),
+            choices=spec.get("choices", []),
+            default=spec.get("default"),
+        )
+
+
+@dataclass
+class QuestionaryArgs:
+    # Typed args for the QUESTIONARY tool.
+    intro: str
+    questions: list[QuestionSpec]
+
+    @classmethod
+    def from_dict(cls, args: dict) -> "QuestionaryArgs":
+        return cls(
+            intro=args.get("intro", "").strip(),
+            questions=[QuestionSpec.from_dict(s) for s in args.get("questions", [])],
+        )
+
+
+def _ask_one(spec: QuestionSpec) -> object | None:
+    # Dispatch a single question by type. Returns None if user cancelled.
+    if spec.type == "text":
+        kwargs: dict = {"style": _STYLE}
+        if spec.default:
+            kwargs["default"] = spec.default
+        return q.text(spec.message, **kwargs).ask()
+
+    if spec.type == "confirm":
+        default_bool = str(spec.default).lower() in ("true", "yes", "1") if spec.default else False
+        return q.confirm(spec.message, default=default_bool, style=_STYLE).ask()
+
+    if spec.type == "select":
+        if not spec.choices:
+            return None
+        kwargs = {"style": _STYLE}
+        if spec.default and spec.default in spec.choices:
+            kwargs["default"] = spec.default
+        return q.select(spec.message, choices=spec.choices, **kwargs).ask()
+
+    if spec.type == "checkbox":
+        if not spec.choices:
+            return []
+        return q.checkbox(spec.message, choices=spec.choices, style=_STYLE).ask()
+
+    # Fallback for unknown types.
+    return q.text(spec.message, style=_STYLE).ask()
+
+
+def _format_answer(value: object) -> str:
+    # Format an answer value as a human-readable string for the model.
+    if isinstance(value, list):
+        return ", ".join(value) if value else "(none selected)"
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    return str(value) if value else "(empty)"
+
+
+def execute(args: dict, config: Config | None = None) -> ToolResult:
+    # Spawn interactive questions and return all answers to the model.
+    parsed = QuestionaryArgs.from_dict(args)
+
+    if not parsed.questions:
+        return ToolResult(output="Error: 'questions' list is empty.", should_continue=True)
+
+    if parsed.intro:
+        console.print(f"\n  [bold cyan]?[/bold cyan] {parsed.intro}\n")
     else:
         console.print()
 
     answers: dict[str, object] = {}
 
-    for spec in questions:
-        key     = spec.get("key", "answer")
-        qtype   = spec.get("type", "text")
-        message = spec.get("message", "")
-        choices = spec.get("choices", [])
-        default = spec.get("default")
-
+    for spec in parsed.questions:
         try:
-            if qtype == "text":
-                kwargs = {"style": _STYLE}
-                if default:
-                    kwargs["default"] = default
-                answer = q.text(message, **kwargs).ask()
-
-            elif qtype == "confirm":
-                default_bool = str(default).lower() in ("true", "yes", "1") if default else False
-                answer = q.confirm(message, default=default_bool, style=_STYLE).ask()
-
-            elif qtype == "select":
-                if not choices:
-                    answers[key] = None
-                    continue
-                kwargs = {"style": _STYLE}
-                if default and default in choices:
-                    kwargs["default"] = default
-                answer = q.select(message, choices=choices, **kwargs).ask()
-
-            elif qtype == "checkbox":
-                if not choices:
-                    answers[key] = []
-                    continue
-                answer = q.checkbox(message, choices=choices, style=_STYLE).ask()
-
-            else:
-                answer = q.text(message, style=_STYLE).ask()
-
-            # User hit Ctrl-C
-            if answer is None:
-                print_info("Questionary cancelled.")
-                return "User cancelled the questionary.", False
-
-            answers[key] = answer
-
+            answer = _ask_one(spec)
         except KeyboardInterrupt:
             print_info("Questionary cancelled.")
-            return "User cancelled the questionary.", False
+            return _CANCELLED
 
-    # Format answers back to the model as a readable summary
+        if answer is None and spec.type not in ("select", "checkbox"):
+            # None from .ask() means the user hit Ctrl-C.
+            print_info("Questionary cancelled.")
+            return _CANCELLED
+
+        answers[spec.key] = answer
+
     lines = ["User answered the following questions:"]
     for k, v in answers.items():
-        if isinstance(v, list):
-            v_str = ", ".join(v) if v else "(none selected)"
-        elif isinstance(v, bool):
-            v_str = "yes" if v else "no"
-        else:
-            v_str = str(v) if v else "(empty)"
-        lines.append(f"  {k}: {v_str}")
+        lines.append(f"  {k}: {_format_answer(v)}")
 
     print_info("Got it.")
-    return "\n".join(lines), True
+    return ToolResult(output="\n".join(lines), should_continue=True)

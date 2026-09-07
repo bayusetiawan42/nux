@@ -1,59 +1,66 @@
-"""Agentic loop and conversation manager for Sharkyo."""
+# agent.py
+# Agentic loop and conversation manager for Sharkyo.
 
 import json
+
 from yaspin import yaspin
 
 from sharkyo.config import Config, load_config
 from sharkyo.constants import SYSTEM_PROMPT
+from sharkyo.context import get_environment_context
 from sharkyo.display import SHARK_SPINNER, print_reply
 from sharkyo.history import HistoryManager
 from sharkyo.knowledge import KnowledgeManager
 from sharkyo.request_manager import RequestManager
 from sharkyo.search import BM25Searcher
 from sharkyo.tools import dispatch_tool
-from sharkyo.display import print_info
-
-_searcher = BM25Searcher()
+from sharkyo.tools.result import ToolResult
 
 
 class Agent:
-    """Core Sharkyo AI agent executing multi-turn reasoning and tool invocation."""
+    # Core Sharkyo AI agent: executes multi-turn reasoning and tool invocation.
 
     def __init__(self, config: Config | None = None) -> None:
         self.config = config or load_config()
         self.history_mgr = HistoryManager(self.config.max_history)
         self.knowledge_mgr = KnowledgeManager()
         self.request_mgr = RequestManager(self.config)
+        self._searcher = BM25Searcher()
 
-    def build_system_prompt(self) -> str:
-        """Inject long-term knowledge facts into the system prompt."""
+    def _build_system_prompt(self) -> str:
+        # Build the full system prompt by injecting user knowledge and
+        # live environment context as XML blocks appended to the base prompt.
         prompt = SYSTEM_PROMPT
-        entries = self.knowledge_mgr.list_all()
 
+        entries = self.knowledge_mgr.list_all()
         if entries:
             block = "\n".join(f"{k} = {v}" for k, v in entries)
-            prompt += f"\nWhat you know about the user:\n{block}"
+            prompt += f"\n\n<user_knowledge>\n{block}\n</user_knowledge>"
+
+        prompt += f"\n\n<environment_context>\n{get_environment_context()}\n</environment_context>"
         return prompt
 
     def _build_skill_hint(self, user_input: str) -> str | None:
-        """Search skills and return a hint string to prepend to the user message, or None."""
-        results = _searcher.search(user_input, top_k=3)
+        # Search skills relevant to the user input and return a hint string,
+        # or None if no strong matches were found.
+        results = self._searcher.search(user_input, top_k=3)
         if not results:
             return None
-
         names = ", ".join(f"'{r.name}'" for r in results)
         return f"[Relevant skills: {names}. Consider calling SKILL with one of these before acting.]"
 
     def run(self, user_input: str) -> None:
-        """Execute the agentic turn for a given user prompt."""
+        # Execute the agentic turn for a given user prompt.
+        # Runs the tool loop until the model stops requesting tools,
+        # or a tool signals that the loop should stop.
         history = self.history_mgr.load()
         self.history_mgr.append_user(user_input)
 
         skill_hint = self._build_skill_hint(user_input)
         augmented_input = f"{skill_hint}\n\n{user_input}" if skill_hint else user_input
 
-        messages = (
-            [{"role": "system", "content": self.build_system_prompt()}]
+        messages: list[dict] = (
+            [{"role": "system", "content": self._build_system_prompt()}]
             + history
             + [{"role": "user", "content": augmented_input}]
         )
@@ -70,7 +77,7 @@ class Agent:
             if text_reply:
                 print_reply(text_reply)
 
-            # If no tools requested, finish turn
+            # No tools requested — turn is complete.
             if not tool_calls:
                 self.history_mgr.append_assistant(text_reply or None)
                 break
@@ -82,35 +89,38 @@ class Agent:
             except Exception:
                 f_args = {}
 
-            tool_output, should_continue = dispatch_tool(name, f_args, self.config)
+            result: ToolResult = dispatch_tool(name, f_args, self.config)
 
-            # If loop should not continue (command cancelled, or no review needed):
-            if not should_continue:
+            if not result.should_continue:
+                # Tool signalled stop (e.g. user cancelled CMD, or unknown tool).
                 if text_reply:
                     self.history_mgr.append_assistant(text_reply)
                 break
 
-            # If continuing: record assistant tool_calls and tool output in messages and history
+            # Record assistant turn (with tool_calls) and the tool result,
+            # then loop back so the model can react to the tool output.
             self.history_mgr.append_assistant(text_reply or None, tool_calls)
-            messages.append({
-                "role": "assistant",
-                "content": msg.content,
-                "tool_calls": [
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments,
-                        },
-                    }
-                ],
-            })
-
-            tool_msg = {
-                "role": "tool",
-                "tool_call_id": tc.id,
-                "content": tool_output or "",
-            }
-            messages.append(tool_msg)
-            self.history_mgr.append_tool_result(tc.id, tool_output or "")
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": msg.content,
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments,
+                            },
+                        }
+                    ],
+                }
+            )
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": result.output or "",
+                }
+            )
+            self.history_mgr.append_tool_result(tc.id, result.output or "")

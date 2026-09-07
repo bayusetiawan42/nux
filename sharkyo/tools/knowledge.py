@@ -1,8 +1,12 @@
-"""Persistent user knowledge tool."""
+# tools/knowledge.py
+# Persistent user knowledge tool.
+
+from dataclasses import dataclass
 
 from sharkyo.config import Config
 from sharkyo.display import print_success
 from sharkyo.knowledge import KnowledgeManager
+from sharkyo.tools.result import ToolResult
 
 SCHEMA = {
     "type": "function",
@@ -38,42 +42,56 @@ SCHEMA = {
 }
 
 
-def execute(args: dict, config: Config | None = None) -> tuple[str, bool]:
-    """Execute knowledge operations."""
-    op = args.get("op", "")
-    key = args.get("key", "").strip()
-    value = args.get("value", "").strip()
+@dataclass
+class KnowledgeArgs:
+    # Typed args for the KNOWLEDGE tool.
+    op: str
+    key: str = ""
+    value: str = ""
+
+    @classmethod
+    def from_dict(cls, args: dict) -> "KnowledgeArgs":
+        return cls(
+            op=args.get("op", ""),
+            key=args.get("key", "").strip(),
+            value=args.get("value", "").strip(),
+        )
+
+
+def execute(args: dict, config: Config | None = None) -> ToolResult:
+    # Execute knowledge operations: set, get, list, delete.
+    parsed = KnowledgeArgs.from_dict(args)
     km = KnowledgeManager()
 
-    if op == "set":
-        if not key or not value:
-            return "Error: 'set' requires both key and value.", True
-        km.set(key, value)
-        print_success(f"Stored: [bold]{key}[/bold] = {value}")
-        return f"Stored: {key} = {value}", True
+    if parsed.op == "set":
+        if not parsed.key or not parsed.value:
+            return ToolResult(output="Error: 'set' requires both key and value.", should_continue=True)
+        km.set(parsed.key, parsed.value)
+        print_success(f"Stored: [bold]{parsed.key}[/bold] = {parsed.value}")
+        return ToolResult(output=f"Stored: {parsed.key} = {parsed.value}", should_continue=True)
 
-    if op == "get":
-        if not key:
-            return "Error: 'get' requires a key.", True
-        result = km.get(key)
+    if parsed.op == "get":
+        if not parsed.key:
+            return ToolResult(output="Error: 'get' requires a key.", should_continue=True)
+        result = km.get(parsed.key)
         if result is None:
-            return f"No knowledge found for key: {key}", True
-        return f"{key} = {result}", True
+            return ToolResult(output=f"No knowledge found for key: {parsed.key}", should_continue=True)
+        return ToolResult(output=f"{parsed.key} = {result}", should_continue=True)
 
-    if op == "list":
+    if parsed.op == "list":
         entries = km.list_all()
         if not entries:
-            return "No knowledge stored yet.", True
+            return ToolResult(output="No knowledge stored yet.", should_continue=True)
         lines = [f"{k} = {v}" for k, v in entries]
-        return "\n".join(lines), True
+        return ToolResult(output="\n".join(lines), should_continue=True)
 
-    if op == "delete":
-        if not key:
-            return "Error: 'delete' requires a key.", True
-        deleted = km.delete(key)
+    if parsed.op == "delete":
+        if not parsed.key:
+            return ToolResult(output="Error: 'delete' requires a key.", should_continue=True)
+        deleted = km.delete(parsed.key)
         if deleted:
-            print_success(f"Deleted knowledge key: {key}")
-            return f"Deleted: {key}", True
-        return f"Key not found: {key}", True
+            print_success(f"Deleted knowledge key: {parsed.key}")
+            return ToolResult(output=f"Deleted: {parsed.key}", should_continue=True)
+        return ToolResult(output=f"Key not found: {parsed.key}", should_continue=True)
 
-    return f"Unknown KNOWLEDGE op: {op}", True
+    return ToolResult(output=f"Unknown KNOWLEDGE op: {parsed.op}", should_continue=True)

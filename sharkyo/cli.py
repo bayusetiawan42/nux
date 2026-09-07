@@ -1,9 +1,9 @@
 # cli.py
 # CLI argument parsing and handlers for Sharkyo.
 
-import argparse
 import sys
 import time
+from dataclasses import dataclass
 
 from sharkyo.storage.apikeys import add_key, list_keys
 from sharkyo.storage.history import HistoryManager
@@ -11,34 +11,132 @@ from sharkyo.storage.knowledge import KnowledgeManager
 from sharkyo.ui.display import console, print_error, print_info, print_success
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="sharkyo",
-        description="Shark, yo. Operate the system!",
-        epilog=(
-            "examples:\n"
-            '  sharkyo "compress this folder"\n'
-            "  sharkyo --clear --clear-knowledge\n"
-            '  sharkyo --clear -- "baterai ku sisa berapa?"\n'
-            "  sharkyo command keys\n"
-            "  sharkyo server status"
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    parser.add_argument(
-        "prompt",
-        nargs="*",
-        help='the task to run, e.g. "compress this folder". Use -- to separate flags from the message',
-    )
-    parser.add_argument("--add-key", metavar="KEY", help="add an API key (Groq by default)")
-    parser.add_argument("--provider", metavar="PROVIDER", help="set provider for --add-key (groq | openai)")
-    parser.add_argument("--base-url", metavar="URL", help="set custom base URL for --add-key")
-    parser.add_argument("--keys", action="store_true", help="list stored API keys and rate-limit status")
-    parser.add_argument("--clear", action="store_true", help="clear chat history")
-    parser.add_argument("--knowledge", action="store_true", help="show stored persistent facts")
-    parser.add_argument("--delete-knowledge", metavar="KEY", help="delete a single knowledge entry")
-    parser.add_argument("--clear-knowledge", action="store_true", help="wipe all stored knowledge")
-    return parser
+@dataclass
+class CliArgs:
+    prompt: list[str]
+    add_key: str | None = None
+    provider: str | None = None
+    base_url: str | None = None
+    keys: bool = False
+    clear: bool = False
+    knowledge: bool = False
+    delete_knowledge: str | None = None
+    clear_knowledge: bool = False
+
+
+_DESCRIPTION = "Shark, yo. Operate the system!"
+
+_COMMANDS = [
+    ("sharkyo <message>", "run a task"),
+    ("sharkyo server <start|stop|status>", "manage the background daemon"),
+    ("sharkyo command <name> [args]", "run a built-in command"),
+]
+
+_OPTIONS = [
+    ("--add-key <key>", "add an API key (Groq by default)"),
+    ("--provider <provider>", "set provider for --add-key (groq | openai)"),
+    ("--base-url <url>", "set custom base URL for --add-key"),
+    ("--keys", "list stored API keys and rate-limit status"),
+    ("--clear", "clear chat history"),
+    ("--knowledge", "show stored persistent facts"),
+    ("--delete-knowledge <key>", "delete a single knowledge entry"),
+    ("--clear-knowledge", "wipe all stored knowledge"),
+    ("-h, --help", "show this help message and exit"),
+]
+
+_EXAMPLES = [
+    'sharkyo "compress this folder"',
+    "sharkyo --clear --clear-knowledge",
+    'sharkyo --clear -- "Change this repo to private"',
+    "sharkyo command keys",
+    "sharkyo server status",
+]
+
+
+def _col_width(items: list[tuple[str, str]]) -> int:
+    return max(len(syn) for syn, _ in items) + 2
+
+
+def print_help() -> None:
+    w = _col_width(_COMMANDS)
+    print("Usage: sharkyo [options] [message...]\n")
+    print("Commands:")
+    for syn, desc in _COMMANDS:
+        print(f"  {syn:<{w}}{desc}")
+    print()
+    print("Options:")
+    w = _col_width(_OPTIONS)
+    for syn, desc in _OPTIONS:
+        print(f"  {syn:<{w}}{desc}")
+    print()
+    print("Examples:")
+    for ex in _EXAMPLES:
+        print(f"  {ex}")
+
+
+def parse(argv: list[str] | None = None) -> CliArgs:
+    if argv is None:
+        argv = sys.argv[1:]
+
+    args = CliArgs(prompt=[])
+
+    i = 0
+    n = len(argv)
+    while i < n:
+        arg = argv[i]
+
+        # -- means everything after is the prompt
+        if arg == "--":
+            args.prompt = argv[i + 1:]
+            break
+
+        if arg == "-h" or arg == "--help":
+            print_help()
+            sys.exit(0)
+
+        if arg == "--add-key":
+            i += 1
+            if i >= n:
+                print_error("--add-key requires a value")
+                sys.exit(1)
+            args.add_key = argv[i]
+        elif arg == "--provider":
+            i += 1
+            if i >= n:
+                print_error("--provider requires a value")
+                sys.exit(1)
+            args.provider = argv[i]
+        elif arg == "--base-url":
+            i += 1
+            if i >= n:
+                print_error("--base-url requires a value")
+                sys.exit(1)
+            args.base_url = argv[i]
+        elif arg == "--delete-knowledge":
+            i += 1
+            if i >= n:
+                print_error("--delete-knowledge requires a value")
+                sys.exit(1)
+            args.delete_knowledge = argv[i]
+        elif arg == "--keys":
+            args.keys = True
+        elif arg == "--clear":
+            args.clear = True
+        elif arg == "--knowledge":
+            args.knowledge = True
+        elif arg == "--clear-knowledge":
+            args.clear_knowledge = True
+        elif arg.startswith("-"):
+            print_error(f"Unknown option: {arg}")
+            print_info("Use --help to see available options")
+            sys.exit(1)
+        else:
+            # Positional: append to prompt
+            args.prompt.append(arg)
+
+        i += 1
+
+    return args
 
 
 def _mask_key(key: str) -> str:
@@ -160,7 +258,7 @@ def _handle_command(argv: list[str] | None) -> int | None:
 
 
 def main() -> str:
-    args = build_parser().parse_args()
+    args = parse()
 
     # Run all flag-based actions (can combine multiple flags)
     ran_action = False
@@ -217,5 +315,5 @@ def main() -> str:
         return prompt
 
     # Nothing to do, show help
-    build_parser().print_help()
+    print_help()
     sys.exit(0)

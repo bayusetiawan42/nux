@@ -14,7 +14,7 @@ from rich.markdown import Markdown
 from rich.padding import Padding
 
 from sharkyo.config import Config
-from sharkyo.display import QUESTIONARY_STYLE_SPEC, console, print_info
+from sharkyo.display import QUESTIONARY_STYLE_SPEC, console, is_interactive, print_info
 from sharkyo.tools.result import ToolResult
 
 SCHEMA = {
@@ -152,20 +152,24 @@ def execute(args: dict, config: Config) -> ToolResult:
     elif parsed.review_output_stderr:
         console.print("  [dim](stderr will be sent back to sharkyo if errors occur)[/dim]")
 
-    confirm = questionary.select(
-        "Run it?",
-        choices=["Yes", "No"],
-        style=_CONFIRM_STYLE,
-    ).ask()
+    cancelled = False
+    if is_interactive():
+        confirm = questionary.select(
+            "Run it?",
+            choices=["Yes", "No"],
+            style=_CONFIRM_STYLE,
+        ).ask()
+        cancelled = confirm != "Yes"
+    else:
+        console.print("  [dim](non-interactive — running without confirmation)[/dim]")
 
-    if confirm != "Yes":
+    if cancelled:
         print_info("Cancelled.")
         return ToolResult(output=None, should_continue=False)
 
+    ran_interactive = parsed.interactive and is_interactive()
     run_result = (
-        _run_interactive(parsed.command)
-        if parsed.interactive
-        else _run_subprocess(parsed.command)
+        _run_interactive(parsed.command) if ran_interactive else _run_subprocess(parsed.command)
     )
 
     # Build the combined output string for display and optional model review.
@@ -178,7 +182,7 @@ def execute(args: dict, config: Config) -> ToolResult:
     raw = (combined or "(no output)").strip() + f" [ exit {run_result.returncode} ]"
 
     # Display to the user (always, capped to cmd_out_lines).
-    if parsed.interactive:
+    if ran_interactive:
         # Already streamed live to the terminal via pty — do not reprint.
         console.print()
     else:

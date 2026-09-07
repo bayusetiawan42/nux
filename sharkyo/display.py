@@ -1,10 +1,13 @@
 # display.py
 # Rich-based display utilities and spinner for Sharkyo.
 
+import sys
+from contextlib import nullcontext
+
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.padding import Padding
-from yaspin.core import Spinner
+from yaspin import yaspin
 
 console = Console()
 
@@ -18,25 +21,26 @@ QUESTIONARY_STYLE_SPEC = [
 ]
 
 # ---------------------------------------------------------------------------
-# Spinner — shining blue text animation
+# Spinner — animated "thinking" indicator shown while the model responds.
+# Uses yaspin's built-in frames: custom ANSI-colored frames inflate the
+# len()/width math and crash even on real terminals ("too small").
 # ---------------------------------------------------------------------------
-_BLUE = "\033[94m"   # bright blue
-_DIM  = "\033[2;37m" # dim gray
-_RST  = "\033[0m"
+_SHINY = "dots"
 
-_word = "sharkyo"
-_shiny_frames: list[str] = []
-for _i in range(len(_word)):
-    _frame = ""
-    for _j, _ch in enumerate(_word):
-        if _j == _i:
-            _frame += f"{_BLUE}{_ch}{_RST}"
-        else:
-            _frame += f"{_DIM}{_ch}{_RST}"
-    _frame += f"{_DIM}...{_RST}"
-    _shiny_frames.append(_frame)
 
-SHARK_SPINNER = Spinner(_shiny_frames, interval=100)
+def yaspin_if_tty(spinner: str = _SHINY):
+    # yaspin raises a ValueError when stdout is not a real terminal (pipes,
+    # redirection, CI) or when custom frames overflow the terminal width.
+    # Render only on real interactive TTYs using built-in safe frames.
+    if sys.stdout.isatty():
+        return yaspin(spinner, text="sharkyo")
+    return nullcontext()
+
+
+def is_interactive() -> bool:
+    # True only when both stdin and stdout are real terminals, so interactive
+    # prompts (questionary/prompt_toolkit) can actually be displayed.
+    return sys.stdin.isatty() and sys.stdout.isatty()
 
 
 # ---------------------------------------------------------------------------

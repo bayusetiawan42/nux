@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 import questionary as q
 
 from sharkyo.config import Config
-from sharkyo.display import QUESTIONARY_STYLE_SPEC, console, print_info
+from sharkyo.display import QUESTIONARY_STYLE_SPEC, console, is_interactive, print_info
 from sharkyo.tools.result import ToolResult
 
 SCHEMA = {
@@ -154,6 +154,15 @@ def execute(args: dict, config: Config | None = None) -> ToolResult:
 
     if not parsed.questions:
         return ToolResult(output="Error: 'questions' list is empty.", should_continue=True)
+
+    if not is_interactive():
+        return ToolResult(
+            output=(
+                "Error: cannot ask interactive questions because stdin is not a "
+                "terminal. Proceed without asking."
+            ),
+            should_continue=True,
+        )
 
     if parsed.intro:
         console.print(f"\n  [bold cyan]?[/bold cyan] {parsed.intro}\n")

@@ -36,6 +36,15 @@ class HistoryManager:
             if row["tool_call_id"]:
                 msg["tool_call_id"] = row["tool_call_id"]
             msgs.append(msg)
+
+        # A truncated window can slice into the middle of a tool exchange.
+        # OpenAI-compatible APIs require assistant tool_calls and their tool
+        # results to arrive in matched pairs, so never start a window with a
+        # bare tool message whose assistant tool_call fell outside it (its
+        # results always follow right after the assistant row, so an
+        # assistant-with-tool_calls at the head is already safe).
+        while msgs and msgs[0]["role"] == "tool":
+            msgs.pop(0)
         return msgs
 
     def append_user(self, content: str) -> None:

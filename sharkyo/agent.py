@@ -4,12 +4,11 @@
 import json
 
 from openai.types.chat import ChatCompletionMessageToolCall
-from yaspin import yaspin
 
 from sharkyo.config import Config, load_config
 from sharkyo.constants import SYSTEM_PROMPT
 from sharkyo.context import get_environment_context
-from sharkyo.display import SHARK_SPINNER, print_error, print_reply
+from sharkyo.display import print_error, print_reply, yaspin_if_tty
 from sharkyo.history import HistoryManager
 from sharkyo.knowledge import KnowledgeManager
 from sharkyo.request_manager import RequestManager
@@ -88,7 +87,7 @@ class Agent:
         )
 
         for _ in range(MAX_TOOL_ITERATIONS):
-            with yaspin(SHARK_SPINNER):
+            with yaspin_if_tty():
                 response = self.request_mgr.chat(messages)
 
             choice = response.choices[0]

@@ -41,3 +41,39 @@ def test_clear():
     h.append_user("a")
     h.clear()
     assert h.load() == []
+
+
+def test_window_trims_incomplete_tool_exchange_at_head():
+    # A sliced window must not start with a bare tool message whose
+    # assistant tool_call fell outside the retained window.
+    h = HistoryManager(max_messages=2)
+    for i in range(5):
+        h.append_user(f"turn {i}")
+    h.append_assistant(
+        None,
+        tool_calls=[
+            {"id": "c1", "type": "function", "function": {"name": "CMD", "arguments": "{}"}}
+        ],
+    )
+    h.append_tool_result("c1", "out")
+    msgs = h.load()
+    assert msgs == [
+        {"role": "assistant", "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "CMD", "arguments": "{}"}}]},
+        {"role": "tool", "tool_call_id": "c1", "content": "out"},
+    ]
+
+
+def test_window_drops_orphan_tool_message():
+    # A run that crashed mid-exchange can leave a bare tool row whose
+    # assistant tool_call lies outside the retained window. It must be
+    # dropped rather than sent to the API.
+    h = HistoryManager(max_messages=1)
+    h.append_user("boundary")
+    h.append_assistant(
+        None,
+        tool_calls=[
+            {"id": "c1", "type": "function", "function": {"name": "CMD", "arguments": "{}"}}
+        ],
+    )
+    h.append_tool_result("c1", "out")
+    assert h.load() == []

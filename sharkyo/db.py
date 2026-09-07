@@ -7,7 +7,7 @@ from contextlib import contextmanager
 
 from sharkyo.constants import DB_FILE
 
-_SCHEMA_SQL = """
+_HISTORY_SQL = """
     CREATE TABLE IF NOT EXISTS history (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         role         TEXT    NOT NULL,
@@ -16,6 +16,10 @@ _SCHEMA_SQL = """
         tool_call_id TEXT,
         created_at   INTEGER NOT NULL
     );
+"""
+
+_SCHEMA_SQL = f"""
+    {_HISTORY_SQL}
 
     CREATE TABLE IF NOT EXISTS knowledge (
         key     TEXT PRIMARY KEY,
@@ -35,6 +39,23 @@ _SCHEMA_SQL = """
 """
 
 
+def _migrate_history(conn: sqlite3.Connection) -> None:
+    # Rebuild the legacy history table (which had a NOT NULL session_id column)
+    # into the schema below, preserving existing rows.
+    cols = [row[1] for row in conn.execute("PRAGMA table_info(history)")]
+    if "session_id" not in cols:
+        return
+    conn.execute("ALTER TABLE history RENAME TO history_legacy")
+    conn.executescript(_HISTORY_SQL)
+    shared = [c for c in ("id", "role", "content", "tool_calls", "tool_call_id", "created_at") if c in cols]
+    conn.execute(
+        f"INSERT INTO history ({', '.join(shared)}) "
+        f"SELECT {', '.join(shared)} FROM history_legacy"
+    )
+    conn.execute("DROP TABLE history_legacy")
+    conn.commit()
+
+
 def _init_schema(conn: sqlite3.Connection) -> None:
     # Enable WAL mode, create all required tables, and migrate legacy layouts.
     conn.execute("PRAGMA journal_mode = WAL;")
@@ -43,6 +64,7 @@ def _init_schema(conn: sqlite3.Connection) -> None:
     from sharkyo.apikeys import migrate_legacy
 
     migrate_legacy(conn, _SCHEMA_SQL)
+    _migrate_history(conn)
     conn.commit()
 
 

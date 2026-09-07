@@ -1,6 +1,10 @@
 # tests/test_cmd.py
 # CMD tool tests: bounded tail buffer and the pty execution path.
 
+import os
+import sys
+import time
+
 from sharkyo.config import Config
 from sharkyo.tools.cmd import CmdArgs, _run_pty, _Tail, _truncate
 
@@ -64,6 +68,41 @@ class TestPtyRunner:
     def test_command_not_found(self):
         result = _run_pty("definitely-not-a-command-xyz", 1000, stream=False)
         assert result.returncode == 127
+
+    def test_forwards_stdin_when_tty(self):
+        # When the caller's stdin is a real terminal, bytes typed there are
+        # forwarded into the child so prompt-based commands (sudo, read)
+        # can be answered.
+        master, slave = os.openpty()
+        pid = os.fork()
+        if pid == 0:
+            os.setsid()
+            os.close(master)
+            os.dup2(slave, 0)
+            os.close(slave)
+            os.execve(
+                sys.executable,
+                [
+                    sys.executable,
+                    "-c",
+                    (
+                        "import os\n"
+                        "from sharkyo.config import Config\n"
+                        "from sharkyo.tools.cmd import _run_pty\n"
+                        "r = _run_pty('read -p X n; echo got:$n', 1000, stream=False)\n"
+                        "print('TRANSCRIPT', repr(r.stdout), flush=True)\n"
+                    ),
+                ],
+                dict(os.environ),
+            )
+        os.close(slave)
+        time.sleep(0.3)
+        os.write(master, b"Luigi\n")
+        time.sleep(0.5)
+        os.close(master)
+        _, st = os.waitpid(pid, 0)
+        # Child exits 0 if the inner read consumed the forwarded input.
+        assert os.waitstatus_to_exitcode(st) == 0
 
 
 class TestArgs:

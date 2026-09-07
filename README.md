@@ -1,27 +1,26 @@
-# 🦈 Sharkyo
+# Sharkyo
 
-**Shark, yo. Operate the system.**
+> Shark, yo. Operate the system.
 
-Sharkyo is a minimalist terminal AI agent that operates your local machine — fast. No planning phases, no bloated context loading, no fluff. You say what you need, it runs it.
+Sharkyo is a minimalist terminal AI agent that operates your local machine. No planning phases, no bloated context loading, no fluff. You say what you need, it runs it.
 
 ```
-~/Projects $ sharkyo summarize git log this week
+$ sharkyo summarize git log this week
 ```
-Done in 3 seconds.
-
----
 
 ## Why Sharkyo
 
-Most CLI agents are built for complex coding tasks — they load your repo, plan ahead, reason in steps. That overhead makes sense for what they do.
+Most CLI agents are built for complex coding tasks -- they load your repo, plan ahead, reason in steps. That overhead makes sense for what they do.
 
-Sharkyo doesn't do that. It's built for **local OS operations**: run a command, get the result, move on. The architecture is deliberately flat: one prompt → one LLM call → one tool → done.
+Sharkyo doesn't do that. It's built for **local OS operations**: run a command, get the result, move on. The architecture is deliberately flat:
+
+```
+prompt -> one LLM call -> one tool -> done
+```
 
 For tasks where the command is obvious and you just need it executed and presented well, that's where Sharkyo wins.
 
----
-
-## Install
+## Installation
 
 ```bash
 git clone https://github.com/bayusetiawan42/sharkyo.git
@@ -41,14 +40,12 @@ Run:
 sharkyo
 ```
 
----
-
 ## Tools
 
 Sharkyo has four tools. That's it.
 
-| Tool | What it does |
-|---|---|
+| Tool | Description |
+|------|-------------|
 | `CMD` | Runs a shell command on your machine. Output streams live; always asks for confirmation first. |
 | `KNOWLEDGE` | Stores and recalls persistent facts about you across sessions. |
 | `SKILL` | Looks up internal guides for tasks that need specific execution steps. |
@@ -56,9 +53,7 @@ Sharkyo has four tools. That's it.
 
 No web search. No file indexing. No repo crawling. If you need the web, `CMD` with `curl` works fine.
 
----
-
-## Usage examples
+## Usage Examples
 
 ```bash
 sharkyo compress all videos in this folder
@@ -71,38 +66,32 @@ sharkyo run tests and show me what failed
 
 For ambiguous requests, Sharkyo will ask you what it needs via interactive prompt before running anything.
 
----
-
 ## Memory
 
 Sharkyo remembers things between sessions via the `KNOWLEDGE` tool. It stores facts like your preferred project directory, tools you use, or anything it notices you repeat. Next session, it already knows.
 
 You can also tell it directly:
 
-```
-sharkyo ingat bahwa project ku ada di ~/dev dan aku pakai pnpm
+```bash
+sharkyo remember that my projects are in ~/dev and I use pnpm
 ```
 
----
-
-## Config
+## Configuration
 
 Sharkyo reads `~/.sharkyorc` on startup. All fields are optional.
 
-```
+```bash
 # ~/.sharkyorc
 
-model        = openai/gpt-oss-120b
-max_history  = 12
-max_tokens   = 512
-temperature  = 0.7
+model         = openai/gpt-oss-120b
+max_history   = 12
+max_tokens    = 512
+temperature   = 0.7
 cmd_out_chars = 3000
 cmd_timeout   = 0
 ```
 
 Supports `key = value`, `key: value`, or `set key value` syntax. Lines starting with `#` are ignored.
-
----
 
 ## Safety
 
@@ -115,3 +104,11 @@ Every shell command is shown to you before it runs. You confirm or cancel. Shark
    > Yes
      No
 ```
+
+## Development
+
+See [DEV.md](DEV.md) for development guidelines and project structure.
+
+## License
+
+GPL-3.0. See [LICENSE](LICENSE) for details.

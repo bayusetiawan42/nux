@@ -10,6 +10,7 @@ from sharkyo.core.errors import (
     AllKeysRateLimitedError,
     APIRequestError,
     AuthenticationFailedError,
+    NoAPIKeyError,
 )
 from sharkyo.core.llm import ChatCompletion, OpenAI
 from sharkyo.storage.apikeys import (
@@ -118,5 +119,3 @@ class RequestManager:
         raise AllKeysRateLimitedError("All API keys exhausted or rate limited.")
 
 
-# Re-export for backward compatibility
-from sharkyo.core.errors import NoAPIKeyError

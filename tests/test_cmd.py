@@ -5,7 +5,7 @@ import os
 import sys
 import time
 
-from sharkyo.config import Config
+from sharkyo.core.config import Config
 from sharkyo.tools.cmd import CmdArgs, _run_pty, _Tail, _truncate
 
 
@@ -87,7 +87,7 @@ class TestPtyRunner:
                     "-c",
                     (
                         "import os\n"
-                        "from sharkyo.config import Config\n"
+                        "from sharkyo.core.config import Config\n"
                         "from sharkyo.tools.cmd import _run_pty\n"
                         "r = _run_pty('read -p X n; echo got:$n', 1000, stream=False)\n"
                         "print('TRANSCRIPT', repr(r.stdout), flush=True)\n"

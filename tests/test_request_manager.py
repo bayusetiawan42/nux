@@ -5,8 +5,9 @@ import time
 
 import pytest
 
-from sharkyo.config import Config
-from sharkyo.request_manager import NoAPIKeyError, RequestManager
+from sharkyo.core.config import Config
+from sharkyo.core.errors import NoAPIKeyError
+from sharkyo.core.request_manager import RequestManager
 
 
 def _fake_exc(headers: dict) -> object:

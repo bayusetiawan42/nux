@@ -1,7 +1,7 @@
 # tests/test_search.py
 # Skill search tests.
 
-from sharkyo.constants import SKILLS_DIR
+from sharkyo.core.constants import SKILLS_DIR
 from sharkyo.search import BM25Searcher, search_skills
 
 

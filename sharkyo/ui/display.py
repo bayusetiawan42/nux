@@ -9,7 +9,7 @@ from rich.markdown import Markdown
 from rich.padding import Padding
 from yaspin import yaspin
 
-console = Console()
+console = Console(force_terminal=True)
 
 QUESTIONARY_STYLE_SPEC = [
     ("qmark",       "fg:#00bcd4 bold"),
@@ -40,11 +40,12 @@ def _looks_like_markdown(text: str) -> bool:
 
 
 def print_reply(text: str) -> None:
+    console.print("[bold cyan]sharkyo[/bold cyan]")
+
     if _looks_like_markdown(text):
-        console.print("[bold cyan]sharkyo[/bold cyan]")
         console.print(Padding(Markdown(text), (0, 0, 0, 2)))
     else:
-        console.print(f"[bold cyan]sharkyo[/bold cyan] {text}")
+        console.print({text})
 
 
 def print_info(msg: str) -> None:

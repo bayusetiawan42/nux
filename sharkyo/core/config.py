@@ -12,7 +12,7 @@ _SET_RE = re.compile(r"^set\s+(\S+)\s+(.+)$", re.IGNORECASE)
 
 @dataclass
 class Config:
-    model: str = "openai/gpt-oss-120b"
+    model: str = "openai/gpt-oss-20b"
     max_history: int = 12
     cmd_out_chars: int = 3000
     cmd_timeout: float = 0.0

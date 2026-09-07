@@ -7,6 +7,9 @@ from dataclasses import dataclass
 
 import questionary
 
+from rich.markdown import Markdown
+from rich.padding import Padding
+
 from sharkyo.core.config import Config
 from sharkyo.tools.result import ToolResult
 from sharkyo.ui.display import QUESTIONARY_STYLE_SPEC, console, is_interactive, print_info
@@ -93,7 +96,7 @@ def _run(command: str) -> tuple[str, int]:
 def execute(args: dict, config: Config) -> ToolResult:
     parsed = CmdArgs.from_dict(args)
 
-    console.print(f"\n  [bold cyan]![/bold cyan] Wants to run: [cyan]{parsed.command}[/cyan]")
+    console.print(Padding(Markdown(f"```bash\n{parsed.command}\n```"), (0, 0, 0, 2)))
 
     cancelled = False
     if is_interactive():
@@ -104,7 +107,7 @@ def execute(args: dict, config: Config) -> ToolResult:
         ).ask()
         cancelled = confirm != "Yes"
     else:
-        console.print("  [dim](non-interactive — running without confirmation)[/dim]")
+        console.print("  [dim](warning: terminal is not interactive, running without confirmation)[/dim]")
 
     if cancelled:
         print_info("Cancelled.")

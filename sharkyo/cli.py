@@ -15,11 +15,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="sharkyo",
         description="Shark, yo. Operate the system!",
+        epilog=(
+            "examples:\n"
+            '  sharkyo "compress this folder"\n'
+            "  sharkyo --clear --clear-knowledge\n"
+            '  sharkyo --clear -- "baterai ku sisa berapa?"\n'
+            "  sharkyo command keys\n"
+            "  sharkyo server status"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "prompt",
         nargs="*",
-        help='the task to run, e.g. "compress this folder"',
+        help='the task to run, e.g. "compress this folder". Use -- to separate flags from the message',
     )
     parser.add_argument("--add-key", metavar="KEY", help="add an API key (Groq by default)")
     parser.add_argument("--provider", metavar="PROVIDER", help="set provider for --add-key (groq | openai)")

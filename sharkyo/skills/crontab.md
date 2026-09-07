@@ -32,18 +32,18 @@ crontab -r
 
 ## Cron Schedule Reference
 
-| Expression          | Meaning                        |
-|---------------------|-------------------------------|
-| `* * * * *`         | Every minute                  |
-| `0 * * * *`         | Every hour                    |
-| `0 9 * * *`         | Every day at 9:00 AM          |
-| `0 9 * * 1`         | Every Monday at 9:00 AM       |
-| `0 9 * * 1-5`       | Weekdays at 9:00 AM           |
-| `*/15 * * * *`      | Every 15 minutes              |
-| `0 0 1 * *`         | First of every month at midnight |
-| `@reboot`           | Once at system startup        |
-| `@hourly`           | Every hour (same as `0 * * * *`) |
-| `@daily`            | Every day at midnight         |
+| Expression | Meaning |
+|------------|---------|
+| `* * * * *` | Every minute |
+| `0 * * * *` | Every hour |
+| `0 9 * * *` | Every day at 9:00 AM |
+| `0 9 * * 1` | Every Monday at 9:00 AM |
+| `0 9 * * 1-5` | Weekdays at 9:00 AM |
+| `*/15 * * * *` | Every 15 minutes |
+| `0 0 1 * *` | First of every month at midnight |
+| `@reboot` | Once at system startup |
+| `@hourly` | Every hour (same as `0 * * * *`) |
+| `@daily` | Every day at midnight |
 
 ## Parameters
 
@@ -54,7 +54,7 @@ crontab -r
 
 ## Example
 
-- **User**: "jalanin /home/bayu/scripts/backup.sh setiap hari jam 2 pagi"
+- **User**: "run /home/bayu/scripts/backup.sh every day at 2 AM"
 - **Tool Call**:
   ```json
   {

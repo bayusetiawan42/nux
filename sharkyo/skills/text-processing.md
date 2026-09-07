@@ -6,9 +6,7 @@ Use this skill when the user wants to search file contents, find patterns, repla
 
 Pick the right tool: `grep` for searching/filtering, `sed` for find-replace or line editing, `awk` for column extraction and structured text.
 
----
-
-## grep — Search and Filter
+## grep -- Search and Filter
 
 ### Search for pattern in file
 
@@ -52,9 +50,7 @@ grep -n -C 3 "<PATTERN>" <FILE>
 grep -c "<PATTERN>" <FILE>
 ```
 
----
-
-## sed — Find and Replace
+## sed -- Find and Replace
 
 ### Replace first occurrence per line
 
@@ -86,9 +82,7 @@ sed -i '/<PATTERN>/d' <FILE>
 sed -n '10,20p' <FILE>
 ```
 
----
-
-## awk — Column Extraction and Structured Text
+## awk -- Column Extraction and Structured Text
 
 ### Print specific column (space-delimited)
 
@@ -120,8 +114,6 @@ awk '{sum += $<N>} END {print sum}' <FILE>
 awk -F',' '{print $<N>}' <FILE>
 ```
 
----
-
 ## Parameters
 
 - Replace `<PATTERN>`, `<FILE>`, `<DIR>`, `<OLD>`, `<NEW>`, `<N>` as needed.
@@ -131,7 +123,7 @@ awk -F',' '{print $<N>}' <FILE>
 
 ## Example
 
-- **User**: "ganti semua 'localhost' jadi '0.0.0.0' di config/settings.py"
+- **User**: "replace all 'localhost' with '0.0.0.0' in config/settings.py"
 - **Tool Call**:
   ```json
   {

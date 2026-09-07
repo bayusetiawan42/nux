@@ -4,7 +4,7 @@ Use this skill when the user wants to check connectivity, ping a host, test a po
 
 ## Execution Strategy
 
-Pick the right tool for the job. Don't run multiple checks at once — run the most relevant one first, then follow up based on what the user needs.
+Pick the right tool for the job. Run the most relevant check first, then follow up based on what the user needs.
 
 ### Check public IP
 
@@ -62,16 +62,16 @@ ss -tlnp
 ss -tp
 ```
 
-### Parameters
+## Parameters
 
 - Replace `<HOST>` with the hostname or IP (e.g. `google.com`, `192.168.1.1`).
 - Replace `<PORT>` with the port number.
 - Use `review_output: true` for diagnostics commands so the model can interpret results.
 - For `ping` and `traceroute`, always use `-c 4` or similar to avoid infinite output.
 
-### Example
+## Example
 
-- **User**: "cek apakah port 443 di api.example.com terbuka"
+- **User**: "check if port 443 on api.example.com is open"
 - **Tool Call**:
   ```json
   {

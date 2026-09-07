@@ -12,8 +12,6 @@ Detect the package manager from the OS. Use `apt` for Debian/Ubuntu, `dnf`/`yum`
 command -v apt && echo apt || command -v dnf && echo dnf || command -v pacman && echo pacman || command -v yum && echo yum
 ```
 
----
-
 ## apt (Debian/Ubuntu)
 
 ### Update package lists
@@ -64,8 +62,6 @@ sudo apt update && sudo apt upgrade -y
 sudo apt autoremove -y && sudo apt clean
 ```
 
----
-
 ## dnf (Fedora/RHEL)
 
 ### Install
@@ -91,8 +87,6 @@ dnf search <QUERY>
 ```bash
 sudo dnf upgrade -y
 ```
-
----
 
 ## pacman (Arch)
 
@@ -120,11 +114,9 @@ pacman -Ss <QUERY>
 sudo pacman -Syu --noconfirm
 ```
 
----
-
 ## Parameters
 
-- For all install/remove/upgrade commands: run them directly — sudo may prompt in the terminal, which is forwarded via the pty.
+- For all install/remove/upgrade commands: run them directly -- sudo may prompt in the terminal, which is forwarded via the pty.
 - For search/info commands: `review_output: true`.
 - If the user doesn't specify package manager, detect it first with the detect command above (`review_output: true`), then install accordingly.
 

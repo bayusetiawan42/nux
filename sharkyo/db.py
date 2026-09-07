@@ -38,6 +38,13 @@ _SCHEMA_SQL = f"""
     );
 """
 
+# Tracks which DB file has already been schema-initialized in this process.
+# Schema creation and legacy migration are idempotent, so on the daemon the
+# work happens a single time at startup, and after a fork the child inherits
+# the value and skips it entirely (its DB is already warm). Keyed by file path
+# so switching databases (e.g. in tests) re-initializes the new one.
+_initialized_file: str | None = None
+
 
 def _migrate_history(conn: sqlite3.Connection) -> None:
     # Rebuild the legacy history table (which had a NOT NULL session_id column)
@@ -71,9 +78,13 @@ def _init_schema(conn: sqlite3.Connection) -> None:
 @contextmanager
 def get_connection() -> Generator[sqlite3.Connection, None, None]:
     # Context manager: opens, yields, and closes a SQLite connection.
+    # Schema/migration work is done once per DB file and skipped afterwards.
+    global _initialized_file
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
-    _init_schema(conn)
+    if _initialized_file != DB_FILE:
+        _init_schema(conn)
+        _initialized_file = DB_FILE
     try:
         yield conn
     finally:

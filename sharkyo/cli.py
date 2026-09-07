@@ -71,6 +71,46 @@ def _print_knowledge() -> None:
         console.print(f"  [cyan]{key}[/cyan] = {value}")
 
 
+def _handle_server(argv: list[str] | None) -> int | None:
+    # Handle the `sharkyo server <start|stop|status>` subcommand.
+    # Returns an exit code to use, or None to continue into agent dispatch.
+    sub = argv[0] if argv else "start"
+    from sharkyo import client
+    from sharkyo.server import running, stop
+
+    if sub == "status":
+        if running():
+            print_success("sharkyo server is running.")
+        else:
+            print_info("sharkyo server is not running.")
+        return 0
+
+    if sub == "stop":
+        if stop():
+            print_success("sharkyo server stopped.")
+        else:
+            print_info("No sharkyo server running.")
+        return 0
+
+    if sub == "start":
+        if running():
+            print_info("sharkyo server is already running.")
+            return 0
+        client.start_daemon()
+        # Wait briefly for the daemon to bind its socket before reporting.
+        for _ in range(40):
+            if running():
+                print_success("sharkyo server started.")
+                return 0
+            time.sleep(0.1)
+        print_info("sharkyo server starting in the background...")
+        return 0
+
+    print_error(f"Unknown server command: {sub}")
+    print_info("Usage: sharkyo server <start|stop|status>")
+    return 1
+
+
 def main() -> str:
     # Parse CLI args and handle flags. Returns the user prompt (non-empty).
     args = build_parser().parse_args()
@@ -108,6 +148,13 @@ def main() -> str:
         sys.exit(0)
 
     prompt = " ".join(args.prompt).strip()
+
+    # `sharkyo server <start|stop|status>` — the first free argument names it.
+    if prompt == "server":
+        sys.exit(_handle_server([]))
+    if prompt.startswith("server "):
+        sys.exit(_handle_server(prompt[len("server "):].split()))
+
     if not prompt:
         build_parser().print_help()
         sys.exit(0)

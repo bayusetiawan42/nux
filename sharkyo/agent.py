@@ -1,9 +1,10 @@
 # agent.py
 # Agentic loop and conversation manager for Sharkyo.
 
-import json
+from __future__ import annotations
 
-from openai.types.chat import ChatCompletionMessageToolCall
+import json
+from typing import TYPE_CHECKING
 
 from sharkyo.config import Config, load_config
 from sharkyo.constants import SYSTEM_PROMPT
@@ -15,6 +16,9 @@ from sharkyo.request_manager import RequestManager
 from sharkyo.search import BM25Searcher
 from sharkyo.tools import dispatch_tool
 from sharkyo.tools.result import ToolResult
+
+if TYPE_CHECKING:  # pragma: no cover - type-checking only; never imported at runtime.
+    from openai.types.chat import ChatCompletionMessageToolCall
 
 # Safety cap: stop the tool loop after this many rounds per user turn.
 MAX_TOOL_ITERATIONS = 10

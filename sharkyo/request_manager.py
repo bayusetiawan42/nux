@@ -1,18 +1,38 @@
 # request_manager.py
 # Sends chat completions using the OpenAI SDK with automatic key rotation on rate limits.
 
-import sys
 import time
 
 from openai import APIConnectionError, APIStatusError, AuthenticationError, OpenAI, RateLimitError
 from openai.types.chat import ChatCompletion
 
-from sharkyo.apikeys import ApiKey, active_key, list_keys, rotate_active, save_rate_limit
+from sharkyo.apikeys import ApiKey, active_key, has_keys, list_keys, rotate_active, save_rate_limit
 from sharkyo.config import Config, load_config
-from sharkyo.display import print_error, print_info
+from sharkyo.display import print_info
 from sharkyo.tools import TOOLS_SCHEMA
 
 _GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+
+
+class SharkyoError(Exception):
+    # Base error for all Sharkyo request failures.
+    pass
+
+
+class NoAPIKeyError(SharkyoError):
+    pass
+
+
+class AllKeysRateLimitedError(SharkyoError):
+    pass
+
+
+class AuthenticationFailedError(SharkyoError):
+    pass
+
+
+class APIRequestError(SharkyoError):
+    pass
 
 
 class RequestManager:
@@ -20,9 +40,8 @@ class RequestManager:
 
     def __init__(self, config: Config | None = None) -> None:
         self.config = config or load_config()
-        if not active_key():
-            print_error("No active API key. Add one with: sharkyo --add-key KEY")
-            sys.exit(1)
+        if not has_keys():
+            raise NoAPIKeyError("No active API key. Add one with: sharkyo --add-key KEY")
 
     def _create_client(self, key: ApiKey) -> OpenAI:
         # Build an OpenAI client for the given key, inferring base URL from provider.
@@ -31,10 +50,11 @@ class RequestManager:
             base_url = _GROQ_BASE_URL
         return OpenAI(api_key=key.key, base_url=base_url)
 
-    def _handle_rate_limit(self, exc: RateLimitError, key_id: int) -> None:
-        # Parse rate-limit headers and mark the key as rate-limited.
-        # Rotate to the next available key, or exit if all are exhausted.
-        reset_ts = int(time.time()) + 60  # Default fallback: 60 seconds.
+    @staticmethod
+    def _parse_reset_ts(exc: RateLimitError) -> int:
+        # Parse the rate-limit reset time from response headers, defaulting to 60s.
+        now = int(time.time())
+        reset_ts = now + 60
         try:
             headers = exc.response.headers
             for header_name in (
@@ -43,20 +63,27 @@ class RequestManager:
                 "x-ratelimit-reset-tokens",
             ):
                 val = headers.get(header_name)
-                if val:
-                    num = int(float(val))
-                    reset_ts = num if num > int(time.time()) else int(time.time()) + num
-                    break
-        except Exception:
+                if not val:
+                    continue
+                seconds = float(val)
+                # retry-after is a relative duration; x-ratelimit-reset-* are absolute epochs.
+                # The heuristic: values smaller than the current epoch are relative seconds.
+                reset_ts = int(now + seconds) if seconds < now else int(seconds)
+                break
+        except (AttributeError, TypeError, ValueError):
             pass
+        return reset_ts
 
-        save_rate_limit(key_id, reset_ts)
+    def _handle_rate_limit(self, exc: RateLimitError, key_id: int) -> None:
+        # Record the rate limit, then rotate to the next available key.
+        save_rate_limit(key_id, self._parse_reset_ts(exc))
         new_key = rotate_active()
         if new_key:
             print_info("Rate limit hit. Rotated to next API key.")
         else:
-            print_error("All configured API keys are currently rate limited. Try again later.")
-            sys.exit(1)
+            raise AllKeysRateLimitedError(
+                "All configured API keys are currently rate limited. Try again later."
+            )
 
     def chat(self, messages: list[dict]) -> ChatCompletion:
         # Execute a chat completion with automatic retry across available keys.
@@ -66,9 +93,12 @@ class RequestManager:
 
         for _ in range(attempts):
             key = active_key()
-            if not key:
-                print_error("No active API key found.")
-                sys.exit(1)
+            if key is None:
+                key = rotate_active()
+            if key is None:
+                raise AllKeysRateLimitedError(
+                    "All configured API keys are currently rate limited. Try again later."
+                )
 
             try:
                 client = self._create_client(key)
@@ -83,14 +113,10 @@ class RequestManager:
             except RateLimitError as e:
                 self._handle_rate_limit(e, key.id)
             except AuthenticationError as e:
-                print_error(f"Authentication failed: {e.message}")
-                sys.exit(1)
+                raise AuthenticationFailedError(f"Authentication failed: {e.message}") from e
             except APIConnectionError as e:
-                print_error(f"Connection error: {e}")
-                sys.exit(1)
+                raise APIRequestError(f"Connection error: {e}") from e
             except APIStatusError as e:
-                print_error(f"API error ({e.status_code}): {e.message}")
-                sys.exit(1)
+                raise APIRequestError(f"API error ({e.status_code}): {e.message}") from e
 
-        print_error("All API keys exhausted or rate limited.")
-        sys.exit(1)
+        raise AllKeysRateLimitedError("All API keys exhausted or rate limited.")

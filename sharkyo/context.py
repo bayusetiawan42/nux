@@ -14,7 +14,7 @@ def _run_git(args: list[str]) -> str:
             stderr=subprocess.DEVNULL,
             timeout=0.2,
         ).decode("utf-8").strip()
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         return ""
 
 
@@ -26,7 +26,7 @@ def get_environment_context() -> str:
     git_branch = _run_git(["branch", "--show-current"])
 
     lines = [
-        f"Current Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"Current Time: {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S')}",
         f"Working Directory (CWD): {cwd}",
     ]
 

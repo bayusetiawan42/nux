@@ -1,10 +1,21 @@
 # apikeys.py
-# API key management with multi-provider and round-robin rotation.
+# API key management with OS-keychain storage and round-robin rotation.
+#
+# Secrets are stored in the OS keychain (keyring). If that is unavailable the
+# key falls back to a 0600-permission JSON file under SHARKYO_DIR. SQLite only
+# keeps non-secret metadata plus a keyring reference (never the raw key).
 
+import json
+import os
 import time
 from dataclasses import dataclass
+from hashlib import sha256
 
+from sharkyo.constants import SHARKYO_DIR
 from sharkyo.db import get_connection
+from sharkyo.display import print_info
+
+_KEYRING_SERVICE = "sharkyo"
 
 
 @dataclass
@@ -17,54 +28,153 @@ class ApiKey:
     reset_at: int
 
 
+def _secrets_file() -> str:
+    # Path to the plaintext fallback secrets store.
+    return os.path.join(SHARKYO_DIR, "secrets.json")
+
+
+def _secret_ref(key: str) -> str:
+    # Derive a stable, non-reversible keyring username from the raw key.
+    return sha256(key.encode("utf-8")).hexdigest()
+
+
+def _store_secret(key_ref: str, key: str) -> str:
+    # Store a key in the OS keychain; fall back to a local 0600 file if unavailable.
+    try:
+        import keyring
+
+        keyring.set_password(_KEYRING_SERVICE, key_ref, key)
+        return "keyring"
+    except Exception:  # noqa: BLE001 - keyring backends fail in many ways; fall back.
+        print_info("OS keyring unavailable — storing API key in fallback file.")
+        payload: dict[str, str] = {}
+        if os.path.exists(_secrets_file()):
+            try:
+                with open(_secrets_file(), "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+            except (OSError, ValueError):
+                payload = {}
+        payload[key_ref] = key
+        fd = os.open(_secrets_file(), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(payload, f)
+        return "file"
+
+
+def _load_secret_file(key_ref: str) -> str | None:
+    if not os.path.exists(_secrets_file()):
+        return None
+    try:
+        with open(_secrets_file(), "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        return payload.get(key_ref)
+    except (OSError, ValueError):
+        return None
+
+
+def _load_secret(key_ref: str, storage: str) -> str | None:
+    # Load a key from the OS keychain, or the fallback file for 'file' storage.
+    if storage == "file":
+        return _load_secret_file(key_ref)
+    try:
+        import keyring
+
+        return keyring.get_password(_KEYRING_SERVICE, key_ref)
+    except Exception:  # noqa: BLE001 - mirrors the tolerant fallback in _store_secret.
+        return _load_secret_file(key_ref)
+
+
+def migrate_legacy(conn, schema_sql: str) -> None:
+    # Migrate the pre-keyring schema (plaintext 'key' column) to key_ref/storage.
+    # Rebuilds the table, moving each key into the keychain (or fallback file).
+    # Idempotent no-op once already migrated.
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(apikeys)")}
+    if "key_ref" in cols:
+        return
+
+    rows = conn.execute(
+        "SELECT id, key, provider, base_url, active, reset_at FROM apikeys"
+    ).fetchall()
+    conn.execute("ALTER TABLE apikeys RENAME TO apikeys_legacy")
+    conn.executescript(schema_sql)
+    for _, plain_key, provider, base_url, active, reset_at in rows:
+        key_ref = _secret_ref(plain_key)
+        storage = _store_secret(key_ref, plain_key)
+        conn.execute(
+            """INSERT INTO apikeys (key_ref, provider, base_url, active, reset_at, storage)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (key_ref, provider, base_url, active, reset_at, storage),
+        )
+    conn.execute("DROP TABLE apikeys_legacy")
+
+
+def has_keys() -> bool:
+    # Return True if at least one API key is configured.
+    with get_connection() as conn:
+        count = conn.execute("SELECT COUNT(*) FROM apikeys").fetchone()[0]
+    return count > 0
+
+
 def list_keys() -> list[ApiKey]:
-    # Return all configured API keys.
+    # Return all configured API keys, loading each secret from its storage backend.
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT id, key, provider, base_url, active, reset_at FROM apikeys ORDER BY id"
+            """SELECT id, key_ref, provider, base_url, active, reset_at, storage
+               FROM apikeys ORDER BY id"""
         ).fetchall()
-    return [
-        ApiKey(
-            id=r["id"],
-            key=r["key"],
-            provider=r["provider"],
-            base_url=r["base_url"],
-            active=bool(r["active"]),
-            reset_at=r["reset_at"],
+
+    keys = []
+    for r in rows:
+        keys.append(
+            ApiKey(
+                id=r["id"],
+                key=_load_secret(r["key_ref"], r["storage"]) or "",
+                provider=r["provider"],
+                base_url=r["base_url"],
+                active=bool(r["active"]),
+                reset_at=r["reset_at"],
+            )
         )
-        for r in rows
-    ]
+    return keys
 
 
 def active_key() -> ApiKey | None:
-    # Return the currently active API key, or None.
+    # Return the currently active API key that is not rate-limited, or None.
+    now = int(time.time())
     with get_connection() as conn:
         row = conn.execute(
-            "SELECT id, key, provider, base_url FROM apikeys WHERE active = 1 LIMIT 1"
+            """SELECT id, key_ref, provider, base_url, active, reset_at, storage
+               FROM apikeys WHERE active = 1 AND reset_at <= ? LIMIT 1""",
+            (now,),
         ).fetchone()
     if not row:
         return None
     return ApiKey(
         id=row["id"],
-        key=row["key"],
+        key=_load_secret(row["key_ref"], row["storage"]) or "",
         provider=row["provider"],
         base_url=row["base_url"],
-        active=True,
-        reset_at=0,
+        active=bool(row["active"]),
+        reset_at=row["reset_at"],
     )
 
 
 def add_key(key: str, provider: str = "groq", base_url: str | None = None) -> None:
     # Add a new API key. Sets it active if it is the first key added.
+    key = key.strip()
+    key_ref = _secret_ref(key)
+    storage = _store_secret(key_ref, key)
     with get_connection() as conn:
         count = conn.execute("SELECT COUNT(*) FROM apikeys").fetchone()[0]
         conn.execute(
-            "INSERT OR IGNORE INTO apikeys (key, provider, base_url, active) VALUES (?, ?, ?, ?)",
+            """INSERT OR IGNORE INTO apikeys (key_ref, provider, base_url, active, storage)
+               VALUES (?, ?, ?, ?, ?)""",
             (
-                key.strip(),
+                key_ref,
                 provider.strip(),
                 base_url.strip() if base_url else None,
                 1 if count == 0 else 0,
+                storage,
             ),
         )
         conn.commit()

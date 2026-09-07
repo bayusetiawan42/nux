@@ -14,7 +14,7 @@ SYSTEM_PROMPT: str = (
     (_PKG_DIR / "skills" / "system_prompt.txt").read_text(encoding="utf-8").rstrip()
 )
 
-__all__ = ["SHARKYO_DIR", "DB_FILE", "SKILLS_DIR", "SYSTEM_PROMPT"]
+__all__ = ["DB_FILE", "SHARKYO_DIR", "SKILLS_DIR", "SYSTEM_PROMPT"]
 
 
 def setup_dirs() -> None:

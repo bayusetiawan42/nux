@@ -1,6 +1,8 @@
 # tools/__init__.py
 # Tool registry and dispatcher for Sharkyo.
 
+from collections.abc import Callable
+
 from sharkyo.config import Config
 from sharkyo.display import print_error
 from sharkyo.tools import cmd, knowledge, questionary, skill
@@ -13,7 +15,7 @@ TOOLS_SCHEMA = [
     questionary.SCHEMA,
 ]
 
-_REGISTRY: dict[str, callable] = {
+_REGISTRY: dict[str, Callable[..., ToolResult]] = {
     "CMD":         cmd.execute,
     "KNOWLEDGE":   knowledge.execute,
     "SKILL":       skill.execute,

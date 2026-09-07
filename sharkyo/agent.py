@@ -3,18 +3,22 @@
 
 import json
 
+from openai.types.chat import ChatCompletionMessageToolCall
 from yaspin import yaspin
 
 from sharkyo.config import Config, load_config
 from sharkyo.constants import SYSTEM_PROMPT
 from sharkyo.context import get_environment_context
-from sharkyo.display import SHARK_SPINNER, print_reply
+from sharkyo.display import SHARK_SPINNER, print_error, print_reply
 from sharkyo.history import HistoryManager
 from sharkyo.knowledge import KnowledgeManager
 from sharkyo.request_manager import RequestManager
 from sharkyo.search import BM25Searcher
 from sharkyo.tools import dispatch_tool
 from sharkyo.tools.result import ToolResult
+
+# Safety cap: stop the tool loop after this many rounds per user turn.
+MAX_TOOL_ITERATIONS = 10
 
 
 class Agent:
@@ -49,10 +53,28 @@ class Agent:
         names = ", ".join(f"'{r.name}'" for r in results)
         return f"[Relevant skills: {names}. Consider calling SKILL with one of these before acting.]"
 
+    def _serialize_tool_call(self, tc: ChatCompletionMessageToolCall) -> dict:
+        # Convert an SDK tool call into a plain API-ready dict.
+        return {
+            "id": tc.id,
+            "type": "function",
+            "function": {
+                "name": tc.function.name,
+                "arguments": tc.function.arguments,
+            },
+        }
+
+    def _parse_tool_args(self, tc: ChatCompletionMessageToolCall) -> dict:
+        # Parse a tool call's JSON arguments, falling back to {} on malformed input.
+        try:
+            return json.loads(tc.function.arguments)
+        except json.JSONDecodeError:
+            return {}
+
     def run(self, user_input: str) -> None:
         # Execute the agentic turn for a given user prompt.
         # Runs the tool loop until the model stops requesting tools,
-        # or a tool signals that the loop should stop.
+        # a tool signals that the loop should stop, or the iteration cap is hit.
         history = self.history_mgr.load()
         self.history_mgr.append_user(user_input)
 
@@ -65,7 +87,7 @@ class Agent:
             + [{"role": "user", "content": augmented_input}]
         )
 
-        while True:
+        for _ in range(MAX_TOOL_ITERATIONS):
             with yaspin(SHARK_SPINNER):
                 response = self.request_mgr.chat(messages)
 
@@ -80,47 +102,44 @@ class Agent:
             # No tools requested — turn is complete.
             if not tool_calls:
                 self.history_mgr.append_assistant(text_reply or None)
-                break
+                return
 
-            tc = tool_calls[0]
-            name = tc.function.name
-            try:
-                f_args = json.loads(tc.function.arguments)
-            except Exception:
-                f_args = {}
+            # Execute each requested tool in order, stopping on the first
+            # tool that signals the loop should end (e.g. user cancelled CMD).
+            executed: list[tuple[ChatCompletionMessageToolCall, ToolResult]] = []
+            stopped = False
+            for tc in tool_calls:
+                result: ToolResult = dispatch_tool(tc.function.name, self._parse_tool_args(tc), self.config)
+                executed.append((tc, result))
+                if not result.should_continue:
+                    stopped = True
+                    break
 
-            result: ToolResult = dispatch_tool(name, f_args, self.config)
-
-            if not result.should_continue:
+            if stopped:
                 # Tool signalled stop (e.g. user cancelled CMD, or unknown tool).
                 if text_reply:
                     self.history_mgr.append_assistant(text_reply)
-                break
+                return
 
-            # Record assistant turn (with tool_calls) and the tool result,
+            # Record the assistant turn (with tool_calls) and each tool result,
             # then loop back so the model can react to the tool output.
-            self.history_mgr.append_assistant(text_reply or None, tool_calls)
+            self.history_mgr.append_assistant(text_reply or None, [tc for tc, _ in executed])
             messages.append(
                 {
                     "role": "assistant",
                     "content": msg.content,
-                    "tool_calls": [
-                        {
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {
-                                "name": tc.function.name,
-                                "arguments": tc.function.arguments,
-                            },
-                        }
-                    ],
+                    "tool_calls": [self._serialize_tool_call(tc) for tc, _ in executed],
                 }
             )
-            messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": result.output or "",
-                }
-            )
-            self.history_mgr.append_tool_result(tc.id, result.output or "")
+            for tc, result in executed:
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tc.id,
+                        "content": result.output or "",
+                    }
+                )
+                self.history_mgr.append_tool_result(tc.id, result.output or "")
+
+        print_error("Reached maximum tool iterations; stopping.")
+        self.history_mgr.append_assistant(text_reply or None)

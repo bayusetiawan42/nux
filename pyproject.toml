@@ -8,9 +8,16 @@ version = "0.1.0"
 description = "Your shark in the terminal"
 dependencies = [
     "openai",
+    "keyring",
     "yaspin",
     "rich",
     "questionary",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
 ]
 
 [project.scripts]
@@ -21,3 +28,10 @@ include = ["sharkyo*"]
 
 [tool.setuptools.package-data]
 sharkyo = ["skills/*.md", "skills/*.txt"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

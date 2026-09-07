@@ -45,7 +45,7 @@ class KnowledgeManager:
                 (key.lower().strip(),),
             )
             conn.commit()
-        return cur.rowcount > 0
+            return cur.rowcount > 0
 
     def clear(self) -> None:
         # Wipe all stored knowledge.

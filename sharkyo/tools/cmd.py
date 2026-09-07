@@ -14,7 +14,7 @@ from rich.markdown import Markdown
 from rich.padding import Padding
 
 from sharkyo.config import Config
-from sharkyo.display import console, print_info
+from sharkyo.display import QUESTIONARY_STYLE_SPEC, console, print_info
 from sharkyo.tools.result import ToolResult
 
 SCHEMA = {
@@ -65,13 +65,7 @@ SCHEMA = {
     },
 }
 
-_CONFIRM_STYLE = questionary.Style([
-    ("qmark",       "fg:#00bcd4 bold"),
-    ("question",    "bold"),
-    ("pointer",     "fg:#00bcd4 bold"),
-    ("highlighted", "fg:#00bcd4 bold"),
-    ("selected",    "fg:#00bcd4"),
-])
+_CONFIRM_STYLE = questionary.Style(QUESTIONARY_STYLE_SPEC)
 
 
 @dataclass
@@ -125,13 +119,15 @@ def _run_interactive(command: str) -> _RunResult:
 def _run_subprocess(command: str) -> _RunResult:
     # Run a command via subprocess with stdout/stderr captured separately.
     try:
-        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        result = subprocess.run(
+            command, shell=True, capture_output=True, text=True, check=False
+        )
         return _RunResult(
             stdout=result.stdout or "",
             stderr=result.stderr or "",
             returncode=result.returncode,
         )
-    except Exception as e:
+    except (OSError, UnicodeDecodeError) as e:
         return _RunResult(stdout="", stderr=f"Error running command: {e}", returncode=1)
 
 

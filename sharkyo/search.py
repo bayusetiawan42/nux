@@ -63,7 +63,7 @@ class BM25Searcher:
         for file_path in sorted(self.skills_dir.glob("*.md")):
             try:
                 content = file_path.read_text(encoding="utf-8")
-            except Exception:
+            except (OSError, UnicodeDecodeError):
                 continue
 
             stem = file_path.stem

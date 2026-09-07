@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 import questionary as q
 
 from sharkyo.config import Config
-from sharkyo.display import console, print_info
+from sharkyo.display import QUESTIONARY_STYLE_SPEC, console, print_info
 from sharkyo.tools.result import ToolResult
 
 SCHEMA = {
@@ -71,14 +71,7 @@ SCHEMA = {
     },
 }
 
-_STYLE = q.Style([
-    ("qmark",       "fg:#00bcd4 bold"),
-    ("question",    "bold"),
-    ("pointer",     "fg:#00bcd4 bold"),
-    ("highlighted", "fg:#00bcd4 bold"),
-    ("selected",    "fg:#00bcd4"),
-    ("answer",      "fg:#00bcd4 bold"),
-])
+_STYLE = q.Style([*QUESTIONARY_STYLE_SPEC, ("answer", "fg:#00bcd4 bold")])
 
 _CANCELLED = ToolResult(output="User cancelled the questionary.", should_continue=False)
 

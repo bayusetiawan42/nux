@@ -14,7 +14,7 @@ from rich.markdown import Markdown
 from sharkyo.core.utils.helper import token_len
 from sharkyo.tools import register_tool
 from sharkyo.tools.result import ToolResult
-from sharkyo.ui.display import QUESTIONARY_STYLE_SPEC, console, is_interactive, print_info
+from sharkyo.ui.display import QUESTIONARY_STYLE_SPEC, console, is_interactive, print_info, print_error
 
 if TYPE_CHECKING:
     from sharkyo.server.daemon import Session
@@ -143,7 +143,7 @@ def execute(args: dict, session: Session) -> ToolResult:
 
     if cancelled:
         print_info("Cancelled.")
-        return ToolResult(output=None, should_continue=False)
+        return ToolResult(output="Command cancelled by user.", should_continue=False)
 
     sys.stdout.flush()
 
@@ -160,7 +160,7 @@ def execute(args: dict, session: Session) -> ToolResult:
         return ToolResult(output="Command interrupted by user.", should_continue=False)
 
     if sys.stdout.isatty() and returncode != 0:
-        console.print(f"\n  [red]![/red] Command exited with code {returncode}.")
+        print_error(f"\nCommand exited with code {returncode}.")
 
     if token_len(transcript) > session.config.max_command_output_tokens:
         transcript = (

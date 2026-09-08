@@ -28,9 +28,9 @@ def _connect(timeout: float = 2.0) -> socket.socket | None:
 
 
 def start_daemon() -> None:
-    from sharkyo.core.constants import SHARKYO_DIR
+    from sharkyo.core.constants import setup_dirs
 
-    os.makedirs(SHARKYO_DIR, exist_ok=True)
+    setup_dirs()
     with open(os.devnull, "r+b") as devnull:
         subprocess.Popen(
             [sys.executable, "-m", "sharkyo.server.daemon"],

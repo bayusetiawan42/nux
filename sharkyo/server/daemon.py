@@ -58,10 +58,11 @@ def _default_turn_runner(
             code = 1
     except KeyboardInterrupt:
         code = 130
-    except Exception as e:  # noqa: BLE001 - report anything unexpected to the caller.
+    except Exception:  # noqa: BLE001 - report anything unexpected to the caller.
         try:
             # TODO create a dev-side error log at ~/.sharkyo/last_error.json
             import traceback
+
             from sharkyo.ui.display import print_error
 
             print_error(f"[dim]{traceback.format_exc()}[/dim]")
@@ -169,9 +170,9 @@ def _serve(conn: socket.socket) -> None:
 
 
 def run_forever() -> None:
-    from sharkyo.core.constants import SHARKYO_DIR
+    from sharkyo.core.constants import setup_dirs
 
-    os.makedirs(SHARKYO_DIR, exist_ok=True)
+    setup_dirs()
 
     if _socket_live():
         return

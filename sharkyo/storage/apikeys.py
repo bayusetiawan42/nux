@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 
 from sharkyo.core.constants import SHARKYO_DIR
-from sharkyo.storage.db import get_connection
+from sharkyo.storage.db import execute_read, execute_read_one, execute_write, get_connection
 from sharkyo.storage.schema import register_migration
 from sharkyo.ui.display import print_info
 
@@ -109,40 +109,34 @@ register_migration("apikeys", _migrate_legacy)
 
 
 def has_keys() -> bool:
-    with get_connection() as conn:
-        count = conn.execute("SELECT COUNT(*) FROM apikeys").fetchone()[0]
-    return count > 0
+    row = execute_read_one("SELECT COUNT(*) AS cnt FROM apikeys")
+    return row["cnt"] > 0 if row else False
 
 
 def list_keys() -> list[ApiKey]:
-    with get_connection() as conn:
-        rows = conn.execute(
-            """SELECT id, key_ref, base_url, active, reset_at, storage
-               FROM apikeys ORDER BY id"""
-        ).fetchall()
-
-    keys = []
-    for r in rows:
-        keys.append(
-            ApiKey(
-                id=r["id"],
-                key=_load_secret(r["key_ref"], r["storage"]) or "",
-                base_url=r["base_url"],
-                active=bool(r["active"]),
-                reset_at=r["reset_at"],
-            )
+    rows = execute_read(
+        """SELECT id, key_ref, base_url, active, reset_at, storage
+           FROM apikeys ORDER BY id"""
+    )
+    return [
+        ApiKey(
+            id=r["id"],
+            key=_load_secret(r["key_ref"], r["storage"]) or "",
+            base_url=r["base_url"],
+            active=bool(r["active"]),
+            reset_at=r["reset_at"],
         )
-    return keys
+        for r in rows
+    ]
 
 
 def active_key() -> ApiKey | None:
     now = int(time.time())
-    with get_connection() as conn:
-        row = conn.execute(
-            """SELECT id, key_ref, base_url, active, reset_at, storage
-               FROM apikeys WHERE active = 1 AND reset_at <= ? LIMIT 1""",
-            (now,),
-        ).fetchone()
+    row = execute_read_one(
+        """SELECT id, key_ref, base_url, active, reset_at, storage
+           FROM apikeys WHERE active = 1 AND reset_at <= ? LIMIT 1""",
+        (now,),
+    )
     if not row:
         return None
     return ApiKey(
@@ -199,6 +193,4 @@ def rotate_active() -> ApiKey | None:
 
 
 def save_rate_limit(key_id: int, reset_ts: int) -> None:
-    with get_connection() as conn:
-        conn.execute("UPDATE apikeys SET reset_at = ? WHERE id = ?", (reset_ts, key_id))
-        conn.commit()
+    execute_write("UPDATE apikeys SET reset_at = ? WHERE id = ?", (reset_ts, key_id))

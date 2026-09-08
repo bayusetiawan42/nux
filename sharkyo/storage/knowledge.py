@@ -3,42 +3,39 @@
 
 import time
 
-from sharkyo.storage.db import get_connection
+from sharkyo.storage.db import (
+    execute_read,
+    execute_read_one,
+    execute_write,
+    execute_write_returning,
+)
 
 
 class KnowledgeManager:
     def set(self, key: str, value: str) -> None:
-        with get_connection() as conn:
-            conn.execute(
-                """INSERT INTO knowledge (key, value, updated) VALUES (?, ?, ?)
-                   ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated=excluded.updated""",
-                (key.lower().strip(), value.strip(), int(time.time())),
-            )
-            conn.commit()
+        execute_write(
+            """INSERT INTO knowledge (key, value, updated) VALUES (?, ?, ?)
+               ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated=excluded.updated""",
+            (key.lower().strip(), value.strip(), int(time.time())),
+        )
 
     def get(self, key: str) -> str | None:
-        with get_connection() as conn:
-            row = conn.execute(
-                "SELECT value FROM knowledge WHERE key = ?",
-                (key.lower().strip(),),
-            ).fetchone()
+        row = execute_read_one(
+            "SELECT value FROM knowledge WHERE key = ?",
+            (key.lower().strip(),),
+        )
         return row["value"] if row else None
 
     def list_all(self) -> list[tuple[str, str]]:
-        with get_connection() as conn:
-            rows = conn.execute("SELECT key, value FROM knowledge ORDER BY updated DESC").fetchall()
+        rows = execute_read("SELECT key, value FROM knowledge ORDER BY updated DESC")
         return [(r["key"], r["value"]) for r in rows]
 
     def delete(self, key: str) -> bool:
-        with get_connection() as conn:
-            cur = conn.execute(
-                "DELETE FROM knowledge WHERE key = ?",
-                (key.lower().strip(),),
-            )
-            conn.commit()
-            return cur.rowcount > 0
+        cur = execute_write_returning(
+            "DELETE FROM knowledge WHERE key = ?",
+            (key.lower().strip(),),
+        )
+        return cur.rowcount > 0
 
     def clear(self) -> None:
-        with get_connection() as conn:
-            conn.execute("DELETE FROM knowledge")
-            conn.commit()
+        execute_write("DELETE FROM knowledge")

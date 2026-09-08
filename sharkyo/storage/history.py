@@ -4,24 +4,23 @@
 import json
 import time
 
-from sharkyo.storage.db import get_connection
-
-_DEFAULT_MAX = 12
+from sharkyo.core.config import Config
+from sharkyo.storage.db import execute_read, execute_write
+from sharkyo.tools.result import serialize_tool_call
 
 
 class HistoryManager:
-    def __init__(self, max_messages: int = _DEFAULT_MAX) -> None:
+    def __init__(self, max_messages: int = Config.max_history) -> None:
         self.max_messages = max_messages
 
     def load(self) -> list[dict]:
-        with get_connection() as conn:
-            rows = conn.execute(
-                """SELECT role, content, tool_calls, tool_call_id
-                   FROM history
-                   ORDER BY id DESC
-                   LIMIT ?""",
-                (self.max_messages,),
-            ).fetchall()
+        rows = execute_read(
+            """SELECT role, content, tool_calls, tool_call_id
+               FROM history
+               ORDER BY id DESC
+               LIMIT ?""",
+            (self.max_messages,),
+        )
 
         msgs: list[dict] = []
         for row in reversed(rows):
@@ -52,16 +51,7 @@ class HistoryManager:
             for tc in tool_calls:
                 if hasattr(tc, "model_dump"):
                     tc = tc.model_dump()
-                clean.append(
-                    {
-                        "id": tc["id"],
-                        "type": "function",
-                        "function": {
-                            "name": tc["function"]["name"],
-                            "arguments": tc["function"]["arguments"],
-                        },
-                    }
-                )
+                clean.append(serialize_tool_call(tc))
             if all(c["function"]["name"] for c in clean):
                 tc_json = json.dumps(clean)
 
@@ -80,15 +70,11 @@ class HistoryManager:
         tool_calls: str | None = None,
         tool_call_id: str | None = None,
     ) -> None:
-        with get_connection() as conn:
-            conn.execute(
-                """INSERT INTO history (role, content, tool_calls, tool_call_id, created_at)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (role, content, tool_calls, tool_call_id, int(time.time())),
-            )
-            conn.commit()
+        execute_write(
+            """INSERT INTO history (role, content, tool_calls, tool_call_id, created_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (role, content, tool_calls, tool_call_id, int(time.time())),
+        )
 
     def clear(self) -> None:
-        with get_connection() as conn:
-            conn.execute("DELETE FROM history")
-            conn.commit()
+        execute_write("DELETE FROM history")

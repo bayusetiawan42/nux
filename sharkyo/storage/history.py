@@ -35,6 +35,7 @@ class HistoryManager:
 
         while msgs and msgs[0]["role"] == "tool":
             msgs.pop(0)
+
         return msgs
 
     def append_user(self, content: str) -> None:

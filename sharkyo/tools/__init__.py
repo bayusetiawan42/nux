@@ -20,7 +20,7 @@ TOOLS_SCHEMA: list[dict] = []
 
 def register_tool(name: str):
     def decorator(function):
-        schema = sys.modules[function.__module__].SCHEMA  # filename.modules.SCHEMA
+        schema = sys.modules[function.__module__].SCHEMA
 
         if schema is not None:
             TOOLS_SCHEMA.append(schema)
@@ -28,7 +28,6 @@ def register_tool(name: str):
             _REGISTRY[name] = function
 
         return function
-
     return decorator
 
 

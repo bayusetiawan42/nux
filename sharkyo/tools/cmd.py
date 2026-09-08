@@ -110,14 +110,10 @@ def _run(
 
             if pass_output_to_user and printed_chars < config.max_command_output_display:
                 chunk_text = chunk.decode(errors="replace")
-
                 rem_chars = max(0, config.max_command_output_display - printed_chars)
-
                 sys.stdout.buffer.write(chunk[:rem_chars])
                 sys.stdout.flush()
-
                 printed_chars += min(len(chunk_text), rem_chars)
-
     except KeyboardInterrupt:
         proc.terminate()
         raise
@@ -140,7 +136,6 @@ def execute(args: dict, session: Session) -> ToolResult:
             choices=["Yes", "No"],
             style=_CONFIRM_STYLE,
         ).ask()
-
         cancelled = confirm != "Yes"
     else:
         console.print(
@@ -154,7 +149,6 @@ def execute(args: dict, session: Session) -> ToolResult:
     sys.stdout.flush()
 
     try:
-        # Run command
         transcript, returncode = _run(
             parsed.command,
             session.config,
@@ -162,7 +156,6 @@ def execute(args: dict, session: Session) -> ToolResult:
             cwd=session.packet.cwd,
             env=session.packet.env,
         )
-
     except KeyboardInterrupt:
         print_info("Command interrupted.")
         return ToolResult(output="Command interrupted by user.", should_continue=False)

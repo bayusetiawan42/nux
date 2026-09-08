@@ -49,7 +49,6 @@ def _make_sigint_handler(child_pid: int):
             os.killpg(child_pid, signal.SIGINT)
         except OSError:
             pass
-
     return _forward
 
 

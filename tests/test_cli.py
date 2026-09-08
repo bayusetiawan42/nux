@@ -1,5 +1,5 @@
 # tests/test_cli.py
-# CLI parser tests (no side effects — parsing only).
+# CLI parser tests (no side effects -- parsing only).
 
 import pytest
 

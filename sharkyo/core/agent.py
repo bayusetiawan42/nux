@@ -17,7 +17,6 @@ from sharkyo.ui.display import print_error, print_reply, yaspin_if_tty
 
 if TYPE_CHECKING:
     from groq.types.chat import ChatCompletionMessageToolCall
-
     from sharkyo.server.daemon import Session
 
 MAX_TOOL_ITERATIONS = 10
@@ -31,7 +30,7 @@ class Agent:
         self.request_mgr = RequestManager(self.session.config)
         self._searcher = BM25Searcher()
 
-    #Prompt construction
+    # -- prompt construction --
 
     def _build_system_prompt(self) -> str:
         parts = [SYSTEM_PROMPT]
@@ -64,7 +63,7 @@ class Agent:
             + [{"role": "user", "content": augmented_input}]
         )
 
-    #Tool helpers
+    # -- tool helpers --
 
     def _parse_tool_args(self, tc: ChatCompletionMessageToolCall) -> dict:
         try:
@@ -108,7 +107,7 @@ class Agent:
             )
             self.history_mgr.append_tool_result(tc.id, result.output or "")
 
-    #Main loop
+    # -- main loop --
 
     def _run_tool_loop(self, messages: list[dict]) -> None:
         text_reply = ""
@@ -131,7 +130,7 @@ class Agent:
             executed, stopped = self._execute_tools(tool_calls)
 
             # Always record the tool call and its output, whether or not the
-            # loop is about to stop — "stopped" only ends the looping, it
+            # loop is about to stop -- "stopped" only ends the looping, it
             # doesn't mean the output is thrown away.
             self._record_tool_results(messages, executed, text_reply or "")
 
@@ -141,7 +140,7 @@ class Agent:
         print_error("Reached maximum tool iterations; stopping.")
         self.history_mgr.append_assistant(text_reply or None)
 
-    #Public API
+    # -- public API --
 
     def run(self, user_input: str) -> None:
         history = self.history_mgr.load()

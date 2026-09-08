@@ -71,7 +71,6 @@ SCHEMA = {
 }
 
 _STYLE = q.Style([*QUESTIONARY_STYLE_SPEC, ("answer", "fg:#00bcd4 bold")])
-
 _CANCELLED = ToolResult(output="User cancelled the questionary.", should_continue=False)
 
 

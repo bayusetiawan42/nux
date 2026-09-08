@@ -6,7 +6,6 @@ import re
 from dataclasses import dataclass
 
 RC_FILE: str = os.path.expanduser("~/.sharkyorc")
-
 _SET_RE = re.compile(r"^set\s+(\S+)\s+(.+)$", re.IGNORECASE)
 
 
@@ -14,8 +13,8 @@ _SET_RE = re.compile(r"^set\s+(\S+)\s+(.+)$", re.IGNORECASE)
 class Config:
     model: str = "openai/gpt-oss-20b"
     max_history: int = 12
-    max_command_output_display: int = 2000  # Chars
-    max_command_output_tokens: int = 1200  # Tokens
+    max_command_output_display: int = 2000  # chars
+    max_command_output_tokens: int = 1200   # tokens
     max_completion_tokens: int = 512
     temperature: float = 0.7
     reasoning_effort: str | None = None

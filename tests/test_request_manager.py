@@ -11,7 +11,7 @@ from sharkyo.core.request_manager import RequestManager
 
 
 def _fake_exc(headers: dict) -> object:
-    # Build a minimal stand-in for RateLimitError.v
+    # Build a minimal stand-in for RateLimitError.
     resp = type("Response", (), {"headers": headers})()
     return type("Exc", (), {"response": resp})()
 

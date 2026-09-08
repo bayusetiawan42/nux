@@ -35,7 +35,6 @@ def _secret_ref(key: str) -> str:
 def _store_secret(key_ref: str, key: str) -> str:
     try:
         import keyring
-
         keyring.set_password(_KEYRING_SERVICE, key_ref, key)
         return "keyring"
     except Exception:  # noqa: BLE001 - keyring backends fail in many ways; fall back.
@@ -70,7 +69,6 @@ def _load_secret(key_ref: str, storage: str) -> str | None:
         return _load_secret_file(key_ref)
     try:
         import keyring
-
         return keyring.get_password(_KEYRING_SERVICE, key_ref)
     except Exception:  # noqa: BLE001 - mirrors the tolerant fallback in _store_secret.
         return _load_secret_file(key_ref)
@@ -88,8 +86,10 @@ def _migrate_legacy(conn, schema_sql: str) -> None:
         ).fetchall()
     else:
         rows = conn.execute("SELECT id, key, base_url, active, reset_at FROM apikeys").fetchall()
+
     conn.execute("ALTER TABLE apikeys RENAME TO apikeys_legacy")
     conn.executescript(schema_sql)
+
     for row in rows:
         if has_provider:
             _, plain_key, _provider, base_url, active, reset_at = row
@@ -102,6 +102,7 @@ def _migrate_legacy(conn, schema_sql: str) -> None:
                VALUES (?, ?, ?, ?, ?)""",
             (key_ref, base_url, active, reset_at, storage),
         )
+
     conn.execute("DROP TABLE apikeys_legacy")
 
 
@@ -152,6 +153,7 @@ def add_key(key: str, base_url: str | None = None) -> None:
     key = key.strip()
     key_ref = _secret_ref(key)
     storage = _store_secret(key_ref, key)
+
     with get_connection() as conn:
         count = conn.execute("SELECT COUNT(*) FROM apikeys").fetchone()[0]
         conn.execute(
@@ -189,6 +191,7 @@ def rotate_active() -> ApiKey | None:
         if candidate.reset_at <= now:
             set_active(candidate.id)
             return candidate
+
     return None
 
 

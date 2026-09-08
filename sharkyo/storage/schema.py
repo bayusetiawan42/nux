@@ -58,8 +58,10 @@ def _migrate_history(conn: sqlite3.Connection, _schema: str) -> None:
     cols = [row[1] for row in conn.execute("PRAGMA table_info(history)")]
     if "session_id" not in cols:
         return
+
     conn.execute("ALTER TABLE history RENAME TO history_legacy")
     conn.executescript(_HISTORY_SQL)
+
     shared = [
         c
         for c in ("id", "role", "content", "tool_calls", "tool_call_id", "created_at")

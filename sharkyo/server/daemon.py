@@ -84,7 +84,6 @@ def register_turn_runner(
 
 def _send_server(conn: socket.socket, message: dict) -> None:
     from sharkyo import __version__
-
     send_message(conn, Packet(type="SERVER", version=__version__, cwd="", env={}, message=message))
 
 
@@ -123,7 +122,6 @@ def _default_turn_runner(
             Agent(session).run(prompt)
         except SharkyoError as e:
             from sharkyo.ui.display import print_error
-
             print_error(str(e))
             code = 1
     except KeyboardInterrupt:
@@ -131,9 +129,7 @@ def _default_turn_runner(
     except Exception:  # noqa: BLE001 - report anything unexpected to the caller.
         try:
             import traceback
-
             from sharkyo.ui.display import print_error
-
             print_error(f"[dim]{traceback.format_exc()}[/dim]")
         except Exception:  # noqa: BLE001, S110 - last-resort error reporting
             pass
@@ -234,6 +230,7 @@ def _serve(conn: socket.socket) -> None:
     pid = os.fork()
     if pid == 0:
         _run_turn(packet, *fds, conn)
+
     for fd in fds:
         try:
             os.close(fd)

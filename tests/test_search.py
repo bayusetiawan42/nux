@@ -19,5 +19,4 @@ def test_search_skills_formats_guide():
     guide = search_skills("network tools", top_k=1)
     assert guide is not None
     assert "Network" in guide.content
-
     assert search_skills("zzqqxxyy nugget") is None

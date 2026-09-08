@@ -26,3 +26,26 @@ def get_connection() -> Generator[sqlite3.Connection, None, None]:
         yield conn
     finally:
         conn.close()
+
+
+def execute_write(sql: str, params: tuple = ()) -> None:
+    with get_connection() as conn:
+        conn.execute(sql, params)
+        conn.commit()
+
+
+def execute_write_returning(sql: str, params: tuple = ()) -> sqlite3.Cursor:
+    with get_connection() as conn:
+        cur = conn.execute(sql, params)
+        conn.commit()
+        return cur
+
+
+def execute_read(sql: str, params: tuple = ()) -> list[sqlite3.Row]:
+    with get_connection() as conn:
+        return conn.execute(sql, params).fetchall()
+
+
+def execute_read_one(sql: str, params: tuple = ()) -> sqlite3.Row | None:
+    with get_connection() as conn:
+        return conn.execute(sql, params).fetchone()

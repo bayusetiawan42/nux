@@ -2,6 +2,7 @@
 # Tool registry and dispatcher for Sharkyo.
 # Each tool module uses @register_tool to register itself.
 
+import sys
 from collections.abc import Callable
 
 from sharkyo.core.config import Config
@@ -13,23 +14,26 @@ TOOLS_SCHEMA: list[dict] = []
 
 
 def register_tool(name: str):
-    def decorator(module):
-        schema = getattr(module, "SCHEMA", None)
-        execute_fn = getattr(module, "execute", None)
+    def decorator(function):
+        schema = sys.modules[function.__module__].SCHEMA  # filename.modules.SCHEMA
+
         if schema is not None:
             TOOLS_SCHEMA.append(schema)
-        if execute_fn is not None:
-            _REGISTRY[name] = execute_fn
-        return module
+        if function is not None:
+            _REGISTRY[name] = function 
+
+        return function
 
     return decorator
 
 
 def dispatch_tool(name: str, args: dict, config: Config) -> ToolResult:
     handler = _REGISTRY.get(name)
+
     if not handler:
         print_error(f"Unknown tool requested: {name}")
         return ToolResult(output=f"Unknown tool: {name}", should_continue=False)
+
     return handler(args, config)
 
 

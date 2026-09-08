@@ -119,7 +119,7 @@ def _run(command: str, config: Config, pass_output_to_user: bool = True) -> tupl
 def execute(args: dict, config: Config) -> ToolResult:
     parsed = CmdArgs.from_dict(args)
 
-    console.print(Padding(Markdown(f"```bash\n{parsed.command}\n```"), (0, 0, 0, 2)))
+    console.print(Padding(Markdown(f"```bash\n$ {parsed.command}\n```"), (0, 0, 0, 2)))
 
     cancelled = False
     if is_interactive():

@@ -48,12 +48,12 @@ def print_reply(text: str) -> None:
 
 
 def print_info(msg: str) -> None:
-    console.print(f"  [cyan]~[/cyan] {msg}")
+    console.print(f"[dim]🡒[/dim] {msg}")
 
 
 def print_error(msg: str) -> None:
-    console.print(f"  [bold red]x[/bold red] {msg}")
+    console.print(f"[bold red]x[/bold red] {msg}")
 
 
 def print_success(msg: str) -> None:
-    console.print(f"  [cyan]✓[/cyan] {msg}")
+    console.print(f"[bold green]✓[/bold green] {msg}")

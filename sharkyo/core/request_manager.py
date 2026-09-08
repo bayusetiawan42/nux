@@ -1,5 +1,5 @@
 # core/request_manager.py
-# Sends chat completions using the OpenAI SDK with automatic key rotation on rate limits.
+# Sends chat completions using the Groq SDK with automatic key rotation on rate limits.
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from sharkyo.core.errors import (
     AuthenticationFailedError,
     NoAPIKeyError,
 )
-from sharkyo.core.llm import ChatCompletion, OpenAI
+from sharkyo.core.llm import ChatCompletion, Groq
 from sharkyo.storage.apikeys import (
     ApiKey,
     active_key,
@@ -23,7 +23,6 @@ from sharkyo.storage.apikeys import (
 )
 from sharkyo.ui.display import print_info
 
-_GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 _TOOLS_SCHEMA = None
 
 
@@ -37,17 +36,13 @@ def _tools_schema() -> list:
 
 
 class RequestManager:
-
     def __init__(self, config: Config | None = None) -> None:
         self.config = config or load_config()
         if not has_keys():
             raise NoAPIKeyError("No active API key. Add one with: sharkyo --add-key KEY")
 
-    def _create_client(self, key: ApiKey) -> OpenAI:
-        base_url = key.base_url
-        if base_url is None and key.provider == "groq":
-            base_url = _GROQ_BASE_URL
-        return OpenAI()(api_key=key.key, base_url=base_url)
+    def _create_client(self, key: ApiKey) -> Groq:
+        return Groq()(api_key=key.key, base_url=key.base_url)
 
     @staticmethod
     def _parse_reset_ts(exc: object) -> int:
@@ -95,14 +90,26 @@ class RequestManager:
 
             try:
                 client = self._create_client(key)
-                return client.chat.completions.create(
-                    model=self.config.model,
-                    messages=messages,
-                    temperature=self.config.temperature,
-                    max_completion_tokens=self.config.max_tokens,
-                    tools=_tools_schema(),
-                    tool_choice="auto",
-                )
+
+                payload: dict = {
+                    "model": self.config.model,
+                    "messages": messages,
+                    "temperature": self.config.temperature,
+                    "max_completion_tokens": self.config.max_completion_tokens,
+                    "tools": _tools_schema(),
+                    "tool_choice": "auto",
+                    "parallel_tool_calls": True,
+                    "citation_options": {"enabled": True},
+                }
+
+                if self.config.reasoning_effort is not None:
+                    payload["reasoning_effort"] = self.config.reasoning_effort
+                if self.config.service_tier is not None:
+                    payload["service_tier"] = self.config.service_tier
+                if self.config.user is not None:
+                    payload["user"] = self.config.user
+
+                return client.chat.completions.create(**payload)
             except Exception as e:
                 exc_type = type(e).__name__
                 if exc_type == "RateLimitError":
@@ -117,5 +124,3 @@ class RequestManager:
                 raise
 
         raise AllKeysRateLimitedError("All API keys exhausted or rate limited.")
-
-

@@ -10,9 +10,9 @@ from sharkyo.tools.result import ToolResult
 from sharkyo.ui.display import print_error
 
 _REGISTRY: dict[str, Callable[..., ToolResult]] = {
-    "CMD":         cmd.execute,
-    "KNOWLEDGE":   knowledge.execute,
-    "SKILL":       skill.execute,
+    "CMD": cmd.execute,
+    "KNOWLEDGE": knowledge.execute,
+    "SKILL": skill.execute,
     "QUESTIONARY": questionary.execute,
 }
 

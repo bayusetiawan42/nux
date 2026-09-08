@@ -12,11 +12,11 @@ from yaspin import yaspin
 console = Console(force_terminal=True)
 
 QUESTIONARY_STYLE_SPEC = [
-    ("qmark",       "fg:#00bcd4 bold"),
-    ("question",    "bold"),
-    ("pointer",     "fg:#00bcd4 bold"),
+    ("qmark", "fg:#00bcd4 bold"),
+    ("question", "bold"),
+    ("pointer", "fg:#00bcd4 bold"),
     ("highlighted", "fg:#00bcd4 bold"),
-    ("selected",    "fg:#00bcd4"),
+    ("selected", "fg:#00bcd4"),
 ]
 
 _SHINY = "dots"

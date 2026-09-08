@@ -7,7 +7,6 @@ from sharkyo.storage.db import get_connection
 
 
 class KnowledgeManager:
-
     def set(self, key: str, value: str) -> None:
         with get_connection() as conn:
             conn.execute(
@@ -27,9 +26,7 @@ class KnowledgeManager:
 
     def list_all(self) -> list[tuple[str, str]]:
         with get_connection() as conn:
-            rows = conn.execute(
-                "SELECT key, value FROM knowledge ORDER BY updated DESC"
-            ).fetchall()
+            rows = conn.execute("SELECT key, value FROM knowledge ORDER BY updated DESC").fetchall()
         return [(r["key"], r["value"]) for r in rows]
 
     def delete(self, key: str) -> bool:

@@ -1,5 +1,5 @@
 # core/llm.py
-# Lazy accessors for the OpenAI SDK.
+# Lazy accessors for the Groq SDK.
 
 from __future__ import annotations
 
@@ -7,30 +7,30 @@ import importlib
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from openai import OpenAI
-    from openai.types.chat import ChatCompletion, ChatCompletionMessageToolCall
+    from groq import Groq
+    from groq.types.chat import ChatCompletion, ChatCompletionMessageToolCall
 
-_OPENAI = None
-
-
-def _get_openai() -> Any:
-    global _OPENAI
-    if _OPENAI is None:
-        _OPENAI = importlib.import_module("openai")
-    return _OPENAI
+_GROQ = None
 
 
-def OpenAI() -> Any:
-    return _get_openai().OpenAI
+def _get_groq() -> Any:
+    global _GROQ
+    if _GROQ is None:
+        _GROQ = importlib.import_module("groq")
+    return _GROQ
+
+
+def Groq() -> Any:
+    return _get_groq().Groq
 
 
 def ChatCompletion() -> Any:
-    return _get_openai().types.chat.ChatCompletion
+    return _get_groq().types.chat.ChatCompletion
 
 
 def ChatCompletionMessageToolCall() -> Any:
-    return _get_openai().types.chat.ChatCompletionMessageToolCall
+    return _get_groq().types.chat.ChatCompletionMessageToolCall
 
 
 def errors() -> Any:
-    return _get_openai()
+    return _get_groq()

@@ -9,8 +9,8 @@ from sharkyo.storage import apikeys
 
 
 def test_add_and_list(fake_keyring):
-    apikeys.add_key("secret-1", provider="groq")
-    apikeys.add_key("secret-2", provider="openai", base_url="https://x")
+    apikeys.add_key("secret-1")
+    apikeys.add_key("secret-2", base_url="https://x")
 
     keys = apikeys.list_keys()
     assert len(keys) == 2
@@ -18,9 +18,11 @@ def test_add_and_list(fake_keyring):
     assert apikeys.active_key().key == "secret-1"
 
     # Raw secrets must never live in the database, only a keyring reference.
-    rows = sqlite3.connect(sharkyo.storage.db.DB_FILE).execute(
-        "SELECT key_ref, storage FROM apikeys ORDER BY id"
-    ).fetchall()
+    rows = (
+        sqlite3.connect(sharkyo.storage.db.DB_FILE)
+        .execute("SELECT key_ref, storage FROM apikeys ORDER BY id")
+        .fetchall()
+    )
     assert all(k not in ("secret-1", "secret-2") for k, _ in rows)
     assert all(storage == "keyring" for _, storage in rows)
 
@@ -57,15 +59,12 @@ def test_migrates_legacy_plaintext_schema(fake_keyring, tmp_path):
         """CREATE TABLE apikeys (
             id       INTEGER PRIMARY KEY AUTOINCREMENT,
             key      TEXT NOT NULL UNIQUE,
-            provider TEXT NOT NULL DEFAULT 'groq',
             base_url TEXT,
             active   INTEGER NOT NULL DEFAULT 0,
             reset_at INTEGER NOT NULL DEFAULT 0
         )"""
     )
-    conn.execute(
-        "INSERT INTO apikeys (key, provider, active) VALUES ('legacy-secret', 'groq', 1)"
-    )
+    conn.execute("INSERT INTO apikeys (key, active) VALUES ('legacy-secret', 1)")
     conn.commit()
     conn.close()
 
@@ -75,5 +74,8 @@ def test_migrates_legacy_plaintext_schema(fake_keyring, tmp_path):
     assert apikeys.active_key().key == "legacy-secret"
 
     # After migration the table no longer holds the plaintext.
-    cols = {r[1] for r in sqlite3.connect(str(tmp_path / "data.db")).execute("PRAGMA table_info(apikeys)")}
+    cols = {
+        r[1]
+        for r in sqlite3.connect(str(tmp_path / "data.db")).execute("PRAGMA table_info(apikeys)")
+    }
     assert "key_ref" in cols and "key" not in cols

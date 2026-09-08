@@ -13,7 +13,6 @@ def tokenize(text: str) -> list[str]:
 
 
 class BM25Searcher:
-
     def __init__(
         self,
         documents_dir: str | Path | None = None,

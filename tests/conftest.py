@@ -12,6 +12,7 @@ def isolated_db(monkeypatch, tmp_path):
     monkeypatch.setattr("sharkyo.core.constants.SHARKYO_DIR", str(tmp_path))
     # Reset the schema initialization tracker so each test gets a fresh DB.
     import sharkyo.storage.db
+
     monkeypatch.setattr(sharkyo.storage.db, "_initialized_file", None)
 
 

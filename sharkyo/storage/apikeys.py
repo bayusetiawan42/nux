@@ -19,7 +19,6 @@ _KEYRING_SERVICE = "sharkyo"
 class ApiKey:
     id: int
     key: str
-    provider: str
     base_url: str | None
     active: bool
     reset_at: int
@@ -82,18 +81,26 @@ def _migrate_legacy(conn, schema_sql: str) -> None:
     if "key_ref" in cols:
         return
 
-    rows = conn.execute(
-        "SELECT id, key, provider, base_url, active, reset_at FROM apikeys"
-    ).fetchall()
+    has_provider = "provider" in cols
+    if has_provider:
+        rows = conn.execute(
+            "SELECT id, key, provider, base_url, active, reset_at FROM apikeys"
+        ).fetchall()
+    else:
+        rows = conn.execute("SELECT id, key, base_url, active, reset_at FROM apikeys").fetchall()
     conn.execute("ALTER TABLE apikeys RENAME TO apikeys_legacy")
     conn.executescript(schema_sql)
-    for _, plain_key, provider, base_url, active, reset_at in rows:
+    for row in rows:
+        if has_provider:
+            _, plain_key, _provider, base_url, active, reset_at = row
+        else:
+            _, plain_key, base_url, active, reset_at = row
         key_ref = _secret_ref(plain_key)
         storage = _store_secret(key_ref, plain_key)
         conn.execute(
-            """INSERT INTO apikeys (key_ref, provider, base_url, active, reset_at, storage)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (key_ref, provider, base_url, active, reset_at, storage),
+            """INSERT INTO apikeys (key_ref, base_url, active, reset_at, storage)
+               VALUES (?, ?, ?, ?, ?)""",
+            (key_ref, base_url, active, reset_at, storage),
         )
     conn.execute("DROP TABLE apikeys_legacy")
 
@@ -110,7 +117,7 @@ def has_keys() -> bool:
 def list_keys() -> list[ApiKey]:
     with get_connection() as conn:
         rows = conn.execute(
-            """SELECT id, key_ref, provider, base_url, active, reset_at, storage
+            """SELECT id, key_ref, base_url, active, reset_at, storage
                FROM apikeys ORDER BY id"""
         ).fetchall()
 
@@ -120,7 +127,6 @@ def list_keys() -> list[ApiKey]:
             ApiKey(
                 id=r["id"],
                 key=_load_secret(r["key_ref"], r["storage"]) or "",
-                provider=r["provider"],
                 base_url=r["base_url"],
                 active=bool(r["active"]),
                 reset_at=r["reset_at"],
@@ -133,7 +139,7 @@ def active_key() -> ApiKey | None:
     now = int(time.time())
     with get_connection() as conn:
         row = conn.execute(
-            """SELECT id, key_ref, provider, base_url, active, reset_at, storage
+            """SELECT id, key_ref, base_url, active, reset_at, storage
                FROM apikeys WHERE active = 1 AND reset_at <= ? LIMIT 1""",
             (now,),
         ).fetchone()
@@ -142,25 +148,23 @@ def active_key() -> ApiKey | None:
     return ApiKey(
         id=row["id"],
         key=_load_secret(row["key_ref"], row["storage"]) or "",
-        provider=row["provider"],
         base_url=row["base_url"],
         active=bool(row["active"]),
         reset_at=row["reset_at"],
     )
 
 
-def add_key(key: str, provider: str = "groq", base_url: str | None = None) -> None:
+def add_key(key: str, base_url: str | None = None) -> None:
     key = key.strip()
     key_ref = _secret_ref(key)
     storage = _store_secret(key_ref, key)
     with get_connection() as conn:
         count = conn.execute("SELECT COUNT(*) FROM apikeys").fetchone()[0]
         conn.execute(
-            """INSERT OR IGNORE INTO apikeys (key_ref, provider, base_url, active, storage)
-               VALUES (?, ?, ?, ?, ?)""",
+            """INSERT OR IGNORE INTO apikeys (key_ref, base_url, active, storage)
+               VALUES (?, ?, ?, ?)""",
             (
                 key_ref,
-                provider.strip(),
                 base_url.strip() if base_url else None,
                 1 if count == 0 else 0,
                 storage,

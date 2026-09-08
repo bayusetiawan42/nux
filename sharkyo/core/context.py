@@ -8,11 +8,15 @@ from datetime import datetime
 
 def _run_git(args: list[str]) -> str:
     try:
-        return subprocess.check_output(
-            ["git"] + args,
-            stderr=subprocess.DEVNULL,
-            timeout=0.2,
-        ).decode("utf-8").strip()
+        return (
+            subprocess.check_output(
+                ["git"] + args,
+                stderr=subprocess.DEVNULL,
+                timeout=0.2,
+            )
+            .decode("utf-8")
+            .strip()
+        )
     except (subprocess.SubprocessError, OSError):
         return ""
 

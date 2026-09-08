@@ -12,6 +12,7 @@ SCHEMA = {
     "type": "function",
     "function": {
         "name": "KNOWLEDGE",
+        "strict": True,
         "description": (
             "Persist or retrieve facts about the user across sessions. "
             "Use 'set' to store a key-value fact. "
@@ -36,7 +37,8 @@ SCHEMA = {
                     "description": "The value to store (required for set).",
                 },
             },
-            "required": ["op"],
+            "required": ["op", "key", "value"],
+            "additionalProperties": False,
         },
     },
 }
@@ -63,7 +65,9 @@ def execute(args: dict, config: Config | None = None) -> ToolResult:
 
     if parsed.op == "set":
         if not parsed.key or not parsed.value:
-            return ToolResult(output="Error: 'set' requires both key and value.", should_continue=True)
+            return ToolResult(
+                output="Error: 'set' requires both key and value.", should_continue=True
+            )
         km.set(parsed.key, parsed.value)
         print_success(f"Stored: [bold]{parsed.key}[/bold] = {parsed.value}")
         return ToolResult(output=f"Stored: {parsed.key} = {parsed.value}", should_continue=True)
@@ -73,7 +77,9 @@ def execute(args: dict, config: Config | None = None) -> ToolResult:
             return ToolResult(output="Error: 'get' requires a key.", should_continue=True)
         result = km.get(parsed.key)
         if result is None:
-            return ToolResult(output=f"No knowledge found for key: {parsed.key}", should_continue=True)
+            return ToolResult(
+                output=f"No knowledge found for key: {parsed.key}", should_continue=True
+            )
         return ToolResult(output=f"{parsed.key} = {result}", should_continue=True)
 
     if parsed.op == "list":

@@ -10,7 +10,6 @@ _DEFAULT_MAX = 12
 
 
 class HistoryManager:
-
     def __init__(self, max_messages: int = _DEFAULT_MAX) -> None:
         self.max_messages = max_messages
 

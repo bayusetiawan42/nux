@@ -18,13 +18,12 @@ from sharkyo.tools.result import ToolResult
 from sharkyo.ui.display import print_error, print_reply, yaspin_if_tty
 
 if TYPE_CHECKING:
-    from openai.types.chat import ChatCompletionMessageToolCall
+    from groq.types.chat import ChatCompletionMessageToolCall
 
 MAX_TOOL_ITERATIONS = 10
 
 
 class Agent:
-
     def __init__(self, config: Config | None = None) -> None:
         self.config = config or load_config()
         self.history_mgr = HistoryManager(self.config.max_history)
@@ -50,7 +49,9 @@ class Agent:
         if not results:
             return None
         names = ", ".join(f"'{r.name}'" for r in results)
-        return f"[Relevant skills: {names}. Consider calling SKILL with one of these before acting.]"
+        return (
+            f"[Relevant skills: {names}. Consider calling SKILL with one of these before acting.]"
+        )
 
     def _build_messages(self, user_input: str, history: list[dict]) -> list[dict]:
         skill_hint = self._build_skill_hint(user_input)
@@ -97,22 +98,22 @@ class Agent:
         executed: list[tuple[ChatCompletionMessageToolCall, ToolResult]],
         text_reply: str,
     ) -> None:
-        self.history_mgr.append_assistant(
-            text_reply or None, [tc for tc, _ in executed]
+        self.history_mgr.append_assistant(text_reply or None, [tc for tc, _ in executed])
+        messages.append(
+            {
+                "role": "assistant",
+                "content": text_reply,
+                "tool_calls": [self._serialize_tool_call(tc) for tc, _ in executed],
+            }
         )
-        messages.append({
-            "role": "assistant",
-            "content": text_reply,
-            "tool_calls": [
-                self._serialize_tool_call(tc) for tc, _ in executed
-            ],
-        })
         for tc, result in executed:
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tc.id,
-                "content": result.output or "",
-            })
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": result.output or "",
+                }
+            )
             self.history_mgr.append_tool_result(tc.id, result.output or "")
 
     # ---- Main loop ----

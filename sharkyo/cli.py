@@ -15,7 +15,6 @@ from sharkyo.ui.display import console, print_error, print_info, print_success
 class CliArgs:
     prompt: list[str]
     add_key: str | None = None
-    provider: str | None = None
     base_url: str | None = None
     keys: bool = False
     clear: bool = False
@@ -33,8 +32,7 @@ _COMMANDS = [
 ]
 
 _OPTIONS = [
-    ("--add-key <key>", "add an API key (Groq by default)"),
-    ("--provider <provider>", "set provider for --add-key (groq | openai)"),
+    ("--add-key <key>", "add a Groq API key"),
     ("--base-url <url>", "set custom base URL for --add-key"),
     ("--keys", "list stored API keys and rate-limit status"),
     ("--clear", "clear chat history"),
@@ -87,7 +85,7 @@ def parse(argv: list[str] | None = None) -> CliArgs:
 
         # -- means everything after is the prompt
         if arg == "--":
-            args.prompt = argv[i + 1:]
+            args.prompt = argv[i + 1 :]
             break
 
         if arg == "-h" or arg == "--help":
@@ -100,12 +98,6 @@ def parse(argv: list[str] | None = None) -> CliArgs:
                 print_error("--add-key requires a value")
                 sys.exit(1)
             args.add_key = argv[i]
-        elif arg == "--provider":
-            i += 1
-            if i >= n:
-                print_error("--provider requires a value")
-                sys.exit(1)
-            args.provider = argv[i]
         elif arg == "--base-url":
             i += 1
             if i >= n:
@@ -162,7 +154,7 @@ def _print_keys() -> None:
             status = "inactive"
         masked = _mask_key(k.key)
         base = f" base_url={k.base_url}" if k.base_url else ""
-        console.print(f"  [{k.id}] {masked}  provider={k.provider}{base}  {status}")
+        console.print(f"  [{k.id}] {masked}{base}  {status}")
 
 
 def _print_knowledge() -> None:
@@ -253,7 +245,9 @@ def _handle_command(argv: list[str] | None) -> int | None:
         return _handle_server(cmd_args)
 
     print_error(f"Unknown command: {name}")
-    print_info("Available commands: keys, clear, knowledge, clear-knowledge, delete-knowledge, server")
+    print_info(
+        "Available commands: keys, clear, knowledge, clear-knowledge, delete-knowledge, server"
+    )
     return 1
 
 
@@ -264,9 +258,8 @@ def main() -> str:
     ran_action = False
 
     if args.add_key:
-        provider = args.provider or "groq"
-        add_key(args.add_key, provider=provider, base_url=args.base_url)
-        print_success(f"API key added (provider={provider}).")
+        add_key(args.add_key, base_url=args.base_url)
+        print_success("API key added.")
         ran_action = True
 
     if args.keys:

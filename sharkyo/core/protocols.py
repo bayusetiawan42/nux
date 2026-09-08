@@ -24,9 +24,12 @@ class ToolHandler(Protocol):
 
 @runtime_checkable
 class ConfigProvider(Protocol):
-    model: str
-    max_history: int
-    cmd_out_chars: int
-    cmd_timeout: float
-    temperature: float
-    max_tokens: int
+    model: str = "openai/gpt-oss-20b"
+    max_history: int = 12
+    max_command_output_display: int = 2000  # Chars
+    max_command_output_tokens: int = 1200  # Tokens
+    max_completion_tokens: int = 512
+    temperature: float = 0.7
+    reasoning_effort: str | None = None
+    service_tier: str | None = None
+    user: str | None = None

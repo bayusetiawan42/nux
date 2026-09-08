@@ -25,11 +25,8 @@ def test_flag_first_then_prompt():
 
 
 def test_add_key_options():
-    args = parse(
-        ["--add-key", "gsk_x", "--provider", "openai", "--base-url", "https://api.example.com"]
-    )
+    args = parse(["--add-key", "gsk_x", "--base-url", "https://api.example.com"])
     assert args.add_key == "gsk_x"
-    assert args.provider == "openai"
     assert args.base_url == "https://api.example.com"
 
 
@@ -48,9 +45,9 @@ def test_multiple_flags_combined():
 
 
 def test_double_dash_separator():
-    args = parse(["--clear", "--", "baterai ku sisa berapa?"])
+    args = parse(["--clear", "--", "how much battery do I have left?"])
     assert args.clear is True
-    assert args.prompt == ["baterai ku sisa berapa?"]
+    assert args.prompt == ["how much battery do I have left?"]
 
 
 def test_double_dash_only():
@@ -97,11 +94,6 @@ def test_unknown_flag_exits():
 def test_add_key_missing_value_exits():
     with pytest.raises(SystemExit):
         parse(["--add-key"])
-
-
-def test_provider_missing_value_exits():
-    with pytest.raises(SystemExit):
-        parse(["--provider"])
 
 
 def test_help_flag(capsys):

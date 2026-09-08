@@ -12,11 +12,14 @@ def _patch_rc(monkeypatch, tmp_path, content: str) -> None:
     monkeypatch.setattr("sharkyo.core.config.RC_FILE", str(rc))
 
 
-@pytest.mark.parametrize("syntax", [
-    "set max_history 8\n",
-    "max_history = 8\n",
-    "max_history: 8\n",
-])
+@pytest.mark.parametrize(
+    "syntax",
+    [
+        "set max_history 8\n",
+        "max_history = 8\n",
+        "max_history: 8\n",
+    ],
+)
 def test_supported_syntaxes(monkeypatch, tmp_path, syntax):
     _patch_rc(monkeypatch, tmp_path, syntax)
     assert load_config().max_history == 8

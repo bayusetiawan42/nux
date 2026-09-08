@@ -28,7 +28,9 @@ def test_parse_reset_ts_relative_and_absolute():
     assert relative == now + 30
 
     future = now + 500
-    absolute = RequestManager._parse_reset_ts(_fake_exc({"x-ratelimit-reset-requests": str(future)}))
+    absolute = RequestManager._parse_reset_ts(
+        _fake_exc({"x-ratelimit-reset-requests": str(future)})
+    )
     assert absolute == future
 
     fallback = RequestManager._parse_reset_ts(_fake_exc({}))

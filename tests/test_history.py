@@ -6,11 +6,11 @@ from sharkyo.storage.history import HistoryManager
 
 def test_append_and_load():
     h = HistoryManager()
-    h.append_user("kompres folder ini")
+    h.append_user("compress this folder")
     h.append_assistant("Siap.")
     msgs = h.load()
     assert [(m["role"], m.get("content")) for m in msgs] == [
-        ("user", "kompres folder ini"),
+        ("user", "compress this folder"),
         ("assistant", "Siap."),
     ]
 
@@ -58,7 +58,12 @@ def test_window_trims_incomplete_tool_exchange_at_head():
     h.append_tool_result("c1", "out")
     msgs = h.load()
     assert msgs == [
-        {"role": "assistant", "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "CMD", "arguments": "{}"}}]},
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {"id": "c1", "type": "function", "function": {"name": "CMD", "arguments": "{}"}}
+            ],
+        },
         {"role": "tool", "tool_call_id": "c1", "content": "out"},
     ]
 

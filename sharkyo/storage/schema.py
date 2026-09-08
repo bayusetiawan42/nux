@@ -44,7 +44,6 @@ _APIKEYS_SQL = """
     CREATE TABLE IF NOT EXISTS apikeys (
         id       INTEGER PRIMARY KEY AUTOINCREMENT,
         key_ref  TEXT    NOT NULL UNIQUE,
-        provider TEXT    NOT NULL DEFAULT 'groq',
         base_url TEXT,
         active   INTEGER NOT NULL DEFAULT 0,
         reset_at INTEGER NOT NULL DEFAULT 0,
@@ -61,10 +60,13 @@ def _migrate_history(conn: sqlite3.Connection, _schema: str) -> None:
         return
     conn.execute("ALTER TABLE history RENAME TO history_legacy")
     conn.executescript(_HISTORY_SQL)
-    shared = [c for c in ("id", "role", "content", "tool_calls", "tool_call_id", "created_at") if c in cols]
+    shared = [
+        c
+        for c in ("id", "role", "content", "tool_calls", "tool_call_id", "created_at")
+        if c in cols
+    ]
     conn.execute(
-        f"INSERT INTO history ({', '.join(shared)}) "
-        f"SELECT {', '.join(shared)} FROM history_legacy"
+        f"INSERT INTO history ({', '.join(shared)}) SELECT {', '.join(shared)} FROM history_legacy"
     )
     conn.execute("DROP TABLE history_legacy")
 

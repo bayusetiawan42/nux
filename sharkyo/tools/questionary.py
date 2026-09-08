@@ -13,6 +13,7 @@ SCHEMA = {
     "type": "function",
     "function": {
         "name": "QUESTIONARY",
+        "strict": True,
         "description": (
             "Ask the user one or more interactive questions to clarify their needs before acting. "
             "Use this when you need to gather requirements, preferences, or choices from the user "
@@ -63,10 +64,12 @@ SCHEMA = {
                             },
                         },
                         "required": ["key", "type", "message"],
+                        "additionalProperties": False,
                     },
                 },
             },
             "required": ["questions"],
+            "additionalProperties": False,
         },
     },
 }

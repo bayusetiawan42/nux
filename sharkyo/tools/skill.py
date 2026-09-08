@@ -12,6 +12,7 @@ SCHEMA = {
     "type": "function",
     "function": {
         "name": "SKILL",
+        "strict": True,
         "description": (
             "Search internal skills and guides for best practices or instructions on "
             "handling specialized tasks (such as 'reminder', 'timer', 'alarm', etc.). "
@@ -26,6 +27,7 @@ SCHEMA = {
                 },
             },
             "required": ["query"],
+            "additionalProperties": False,
         },
     },
 }
@@ -48,10 +50,12 @@ def execute(args: dict, config: Config | None = None) -> ToolResult:
             should_continue=True,
         )
 
-    guide = search_skills(parsed.query)
-    if guide:
-        print_info(f"Retrieved internal skill for: [bold cyan]{parsed.query}[/bold cyan]")
-        return ToolResult(output=guide, should_continue=True)
+    skill = search_skills(parsed.query)
+
+    if skill:
+        print_info(f"Retrieved skill: {skill.name}")
+        content = f"Skill '{skill.name}':\n{skill.content.strip()}"
+        return ToolResult(output=content, should_continue=True)
 
     return ToolResult(
         output=f"No internal skill found matching '{parsed.query}'. Proceed using standard tools.",

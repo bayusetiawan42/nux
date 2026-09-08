@@ -17,7 +17,9 @@ from sharkyo.server.protocol import recv_fds, recv_prompt
 _turn_runner: Callable[[str, int, int, int, socket.socket], None] | None = None
 
 
-def register_turn_runner(runner: Callable[[str, int, int, int, socket.socket], None] | None) -> None:
+def register_turn_runner(
+    runner: Callable[[str, int, int, int, socket.socket], None] | None,
+) -> None:
     global _turn_runner
     _turn_runner = runner
 
@@ -58,12 +60,11 @@ def _default_turn_runner(
         code = 130
     except Exception as e:  # noqa: BLE001 - report anything unexpected to the caller.
         try:
+            # TODO create a dev-side error log at ~/.sharkyo/last_error.json
             import traceback
-
             from sharkyo.ui.display import print_error
 
-            print_error(f"Unexpected error: {e}")
-            traceback.print_exc()
+            print_error(f"[dim]{traceback.format_exc()}[/dim]")
         except Exception:  # noqa: BLE001, S110 - last-resort error reporting
             pass
         code = 1

@@ -7,7 +7,7 @@ name = "sharkyo"
 version = "0.1.0"
 description = "Your shark in the terminal"
 dependencies = [
-    "openai",
+    "groq",
     "keyring",
     "yaspin",
     "rich",

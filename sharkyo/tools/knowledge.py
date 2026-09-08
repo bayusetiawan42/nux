@@ -12,7 +12,6 @@ SCHEMA = {
     "type": "function",
     "function": {
         "name": "KNOWLEDGE",
-        "strict": True,
         "description": (
             "Persist or retrieve facts about the user across sessions. "
             "Use 'set' to store a key-value fact. "
@@ -37,7 +36,7 @@ SCHEMA = {
                     "description": "The value to store (required for set).",
                 },
             },
-            "required": ["op", "key", "value"],
+            "required": ["op", "key"],
             "additionalProperties": False,
         },
     },

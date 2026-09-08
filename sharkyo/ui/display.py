@@ -45,7 +45,7 @@ def print_reply(text: str) -> None:
     if _looks_like_markdown(text):
         console.print(Padding(Markdown(text), (0, 0, 0, 2)))
     else:
-        console.print({text})
+        console.print(text)
 
 
 def print_info(msg: str) -> None:

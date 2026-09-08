@@ -1,37 +1,40 @@
 # tests/test_cmd.py
 # CMD tool tests: arg parsing and the subprocess execution path.
 
+from sharkyo.core.config import Config
 from sharkyo.tools.cmd import CmdArgs, _run
+
+_config = Config()
 
 
 class TestRun:
     def test_echo_and_success(self):
-        transcript, returncode = _run("echo hello")
+        transcript, returncode = _run("echo hello", _config)
         assert transcript.strip() == "hello"
         assert returncode == 0
 
     def test_merges_stderr_into_transcript(self):
-        transcript, _ = _run("echo out; echo err >&2")
+        transcript, _ = _run("echo out; echo err >&2", _config)
         assert "out" in transcript
         assert "err" in transcript
 
     def test_exit_code_propagates(self):
-        _, returncode = _run("exit 3")
+        _, returncode = _run("exit 3", _config)
         assert returncode == 3
 
     def test_stdin_is_ignored(self):
         # stdin is DEVNULL, so a command reading from it should get EOF
         # immediately rather than hanging or picking up our test runner's stdin.
-        transcript, returncode = _run("cat")
+        transcript, returncode = _run("cat", _config)
         assert transcript == ""
         assert returncode == 0
 
     def test_command_not_found(self):
-        _, returncode = _run("definitely-not-a-command-xyz")
+        _, returncode = _run("definitely-not-a-command-xyz", _config)
         assert returncode != 0
 
     def test_full_output_not_truncated(self):
-        transcript, _ = _run("yes x | head -c 20000")
+        transcript, _ = _run("yes x | head -c 20000", _config)
         assert len(transcript) == 20000
 
 

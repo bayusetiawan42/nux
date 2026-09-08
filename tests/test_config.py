@@ -34,8 +34,8 @@ def test_missing_rc_returns_defaults(monkeypatch, tmp_path):
 
 
 def test_comments_and_invalid_lines_ignored(monkeypatch, tmp_path):
-    _patch_rc(monkeypatch, tmp_path, "# comment\n\nbogus line\nmax_tokens = 128\n")
-    assert load_config().max_tokens == 128
+    _patch_rc(monkeypatch, tmp_path, "# comment\n\nbogus line\nmax_completion_tokens = 128\n")
+    assert load_config().max_completion_tokens == 128
 
 
 def test_invalid_value_keeps_default(monkeypatch, tmp_path):

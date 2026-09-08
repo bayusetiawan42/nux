@@ -11,6 +11,7 @@ from rich.padding import Padding
 
 from sharkyo.core.config import Config
 from sharkyo.core.utils.helper import token_len
+from sharkyo.tools import register_tool
 from sharkyo.tools.result import ToolResult
 from sharkyo.ui.display import QUESTIONARY_STYLE_SPEC, console, is_interactive, print_info
 
@@ -114,6 +115,7 @@ def _run(command: str, config: Config, pass_output_to_user: bool = True) -> tupl
     return b"".join(chunks).decode(errors="replace"), proc.returncode
 
 
+@register_tool("CMD")
 def execute(args: dict, config: Config) -> ToolResult:
     parsed = CmdArgs.from_dict(args)
 

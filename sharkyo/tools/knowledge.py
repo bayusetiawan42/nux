@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from sharkyo.core.config import Config
 from sharkyo.storage.knowledge import KnowledgeManager
+from sharkyo.tools import register_tool
 from sharkyo.tools.result import ToolResult
 from sharkyo.ui.display import print_success
 
@@ -58,6 +59,28 @@ class KnowledgeArgs:
         )
 
 
+def list_all_formatted() -> str:
+    entries = KnowledgeManager().list_all()
+    if not entries:
+        return ""
+    return "\n".join(f"{k} = {v}" for k, v in entries)
+
+
+def delete_key(key: str) -> tuple[bool, str]:
+    deleted = KnowledgeManager().delete(key)
+    if deleted:
+        print_success(f"Deleted knowledge key: {key}")
+        return True, f"Deleted: {key}"
+    return False, f"Key not found: {key}"
+
+
+def clear_all() -> str:
+    KnowledgeManager().clear()
+    print_success("All knowledge cleared.")
+    return "All knowledge cleared."
+
+
+@register_tool("KNOWLEDGE")
 def execute(args: dict, config: Config | None = None) -> ToolResult:
     parsed = KnowledgeArgs.from_dict(args)
     km = KnowledgeManager()
@@ -82,19 +105,15 @@ def execute(args: dict, config: Config | None = None) -> ToolResult:
         return ToolResult(output=f"{parsed.key} = {result}", should_continue=True)
 
     if parsed.op == "list":
-        entries = km.list_all()
-        if not entries:
+        formatted = list_all_formatted()
+        if not formatted:
             return ToolResult(output="No knowledge stored yet.", should_continue=True)
-        lines = [f"{k} = {v}" for k, v in entries]
-        return ToolResult(output="\n".join(lines), should_continue=True)
+        return ToolResult(output=formatted, should_continue=True)
 
     if parsed.op == "delete":
         if not parsed.key:
             return ToolResult(output="Error: 'delete' requires a key.", should_continue=True)
-        deleted = km.delete(parsed.key)
-        if deleted:
-            print_success(f"Deleted knowledge key: {parsed.key}")
-            return ToolResult(output=f"Deleted: {parsed.key}", should_continue=True)
-        return ToolResult(output=f"Key not found: {parsed.key}", should_continue=True)
+        _, msg = delete_key(parsed.key)
+        return ToolResult(output=msg, should_continue=True)
 
     return ToolResult(output=f"Unknown KNOWLEDGE op: {parsed.op}", should_continue=True)

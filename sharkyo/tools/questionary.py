@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 import questionary as q
 
 from sharkyo.core.config import Config
+from sharkyo.tools import register_tool
 from sharkyo.tools.result import ToolResult
 from sharkyo.ui.display import QUESTIONARY_STYLE_SPEC, console, is_interactive, print_info
 
@@ -136,6 +137,7 @@ def _format_answer(value: object) -> str:
     return str(value) if value else "(empty)"
 
 
+@register_tool("QUESTIONARY")
 def execute(args: dict, config: Config | None = None) -> ToolResult:
     parsed = QuestionaryArgs.from_dict(args)
 

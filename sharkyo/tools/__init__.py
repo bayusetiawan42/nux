@@ -1,27 +1,28 @@
 # tools/__init__.py
 # Tool registry and dispatcher for Sharkyo.
-# Each tool module owns its own SCHEMA; TOOLS_SCHEMA is just their sum.
+# Each tool module uses @register_tool to register itself.
 
 from collections.abc import Callable
 
 from sharkyo.core.config import Config
-from sharkyo.tools import cmd, knowledge, questionary, skill
 from sharkyo.tools.result import ToolResult
 from sharkyo.ui.display import print_error
 
-_REGISTRY: dict[str, Callable[..., ToolResult]] = {
-    "CMD": cmd.execute,
-    "KNOWLEDGE": knowledge.execute,
-    "SKILL": skill.execute,
-    "QUESTIONARY": questionary.execute,
-}
+_REGISTRY: dict[str, Callable[..., ToolResult]] = {}
+TOOLS_SCHEMA: list[dict] = []
 
-TOOLS_SCHEMA = [
-    cmd.SCHEMA,
-    knowledge.SCHEMA,
-    skill.SCHEMA,
-    questionary.SCHEMA,
-]
+
+def register_tool(name: str):
+    def decorator(module):
+        schema = getattr(module, "SCHEMA", None)
+        execute_fn = getattr(module, "execute", None)
+        if schema is not None:
+            TOOLS_SCHEMA.append(schema)
+        if execute_fn is not None:
+            _REGISTRY[name] = execute_fn
+        return module
+
+    return decorator
 
 
 def dispatch_tool(name: str, args: dict, config: Config) -> ToolResult:
@@ -30,3 +31,7 @@ def dispatch_tool(name: str, args: dict, config: Config) -> ToolResult:
         print_error(f"Unknown tool requested: {name}")
         return ToolResult(output=f"Unknown tool: {name}", should_continue=False)
     return handler(args, config)
+
+
+# Import tool modules to trigger @register_tool decorators
+from sharkyo.tools import cmd, knowledge, questionary, skill  # noqa: F401

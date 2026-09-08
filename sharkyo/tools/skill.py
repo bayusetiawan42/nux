@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from sharkyo.core.config import Config
 from sharkyo.search import search_skills
+from sharkyo.tools import register_tool
 from sharkyo.tools.result import ToolResult
 from sharkyo.ui.display import print_info
 
@@ -42,6 +43,7 @@ class SkillArgs:
         return cls(query=args.get("query", "").strip())
 
 
+@register_tool("SKILL")
 def execute(args: dict, config: Config | None = None) -> ToolResult:
     parsed = SkillArgs.from_dict(args)
     if not parsed.query:

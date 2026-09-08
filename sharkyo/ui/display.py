@@ -43,9 +43,9 @@ def print_reply(text: str) -> None:
     console.print("[bold cyan]sharkyo[/bold cyan]")
 
     if _looks_like_markdown(text):
-        console.print(Padding(Markdown(text), (0, 0, 0, 2)))
+        console.print(Padding(Markdown(text), (0, 2, 0, 2)))
     else:
-        console.print(Padding(text, (0, 0, 0, 2)))
+        console.print(Padding(text, (0, 2, 0, 2)))
 
 
 def print_info(msg: str) -> None:

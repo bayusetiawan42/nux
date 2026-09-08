@@ -131,7 +131,7 @@ def _run(
 def execute(args: dict, session: Session) -> ToolResult:
     parsed = CmdArgs.from_dict(args)
 
-    console.print(Padding(Markdown(f"```bash\n$ {parsed.command}\n```"), (0, 0, 0, 2)))
+    console.print(Markdown(f"```bash\n$ {parsed.command}\n```"))
 
     cancelled = False
     if is_interactive():

@@ -7,8 +7,13 @@ from dataclasses import dataclass
 
 from sharkyo.storage.apikeys import add_key, list_keys
 from sharkyo.storage.history import HistoryManager
-from sharkyo.storage.knowledge import KnowledgeManager
+from sharkyo.tools.knowledge import clear_all, delete_key, list_all_formatted
 from sharkyo.ui.display import console, print_error, print_info, print_success
+
+AVAILABLE_COMMANDS = "keys, clear, knowledge, clear-knowledge, delete-knowledge, server"
+
+_MSG_HISTORY_CLEARED = "History cleared."
+_MSG_NO_KNOWLEDGE = "No knowledge stored yet."
 
 
 @dataclass
@@ -158,13 +163,14 @@ def _print_keys() -> None:
 
 
 def _print_knowledge() -> None:
-    entries = KnowledgeManager().list_all()
-    if not entries:
-        print_info("No knowledge stored yet.")
+    formatted = list_all_formatted()
+    if not formatted:
+        print_info(_MSG_NO_KNOWLEDGE)
         return
     console.print("[bold cyan]Stored knowledge:[/bold cyan]")
-    for key, value in entries:
-        console.print(f"  [cyan]{key}[/cyan] = {value}")
+    for line in formatted.splitlines():
+        key, _, value = line.partition("=")
+        console.print(f"  [cyan]{key.strip()}[/cyan] = {value.strip()}")
 
 
 def _handle_server(argv: list[str] | None) -> int | None:
@@ -205,7 +211,7 @@ def _handle_server(argv: list[str] | None) -> int | None:
 
 def _handle_command(argv: list[str] | None) -> int | None:
     if not argv:
-        print_info("Available commands: keys, clear, knowledge, clear-knowledge, server")
+        print_info(f"Available commands: {AVAILABLE_COMMANDS}")
         print_info("Usage: sharkyo command <name> [args]")
         return 0
 
@@ -218,7 +224,7 @@ def _handle_command(argv: list[str] | None) -> int | None:
 
     if name == "clear":
         HistoryManager().clear()
-        print_success("History cleared.")
+        print_success(_MSG_HISTORY_CLEARED)
         return 0
 
     if name == "knowledge":
@@ -226,28 +232,25 @@ def _handle_command(argv: list[str] | None) -> int | None:
         return 0
 
     if name == "clear-knowledge":
-        KnowledgeManager().clear()
-        print_success("All knowledge cleared.")
+        clear_all()
         return 0
 
     if name == "delete-knowledge":
         if not cmd_args:
             print_error("Usage: sharkyo command delete-knowledge <key>")
             return 1
-        deleted = KnowledgeManager().delete(cmd_args[0])
-        if deleted:
-            print_success(f"Deleted knowledge key: {cmd_args[0]}")
+        success, msg = delete_key(cmd_args[0])
+        if success:
+            print_success(msg)
         else:
-            print_error(f"Key not found: {cmd_args[0]}")
+            print_error(msg)
         return 0
 
     if name == "server":
         return _handle_server(cmd_args)
 
     print_error(f"Unknown command: {name}")
-    print_info(
-        "Available commands: keys, clear, knowledge, clear-knowledge, delete-knowledge, server"
-    )
+    print_info(f"Available commands: {AVAILABLE_COMMANDS}")
     return 1
 
 
@@ -268,7 +271,7 @@ def main() -> str:
 
     if args.clear:
         HistoryManager().clear()
-        print_success("History cleared.")
+        print_success(_MSG_HISTORY_CLEARED)
         ran_action = True
 
     if args.knowledge:
@@ -276,16 +279,15 @@ def main() -> str:
         ran_action = True
 
     if args.clear_knowledge:
-        KnowledgeManager().clear()
-        print_success("All knowledge cleared.")
+        clear_all()
         ran_action = True
 
     if args.delete_knowledge:
-        deleted = KnowledgeManager().delete(args.delete_knowledge)
-        if deleted:
-            print_success(f"Deleted knowledge key: {args.delete_knowledge}")
+        success, msg = delete_key(args.delete_knowledge)
+        if success:
+            print_success(msg)
         else:
-            print_error(f"Key not found: {args.delete_knowledge}")
+            print_error(msg)
         ran_action = True
 
     prompt = " ".join(args.prompt).strip()

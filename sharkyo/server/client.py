@@ -10,9 +10,10 @@ import subprocess
 import sys
 import time
 
+from sharkyo import __version__
 from sharkyo.server.daemon import running
 from sharkyo.server.defaults import SOCKET_PATH, STARTUP_WAIT
-from sharkyo.server.protocol import recv_int, send_fds, send_prompt
+from sharkyo.server.protocol import recv_int, send_dict, send_fds
 
 
 def _connect(timeout: float = 2.0) -> socket.socket | None:
@@ -69,7 +70,13 @@ def run_remote(prompt: str) -> int | None:
             return None
 
     try:
-        send_prompt(conn, prompt)
+        payload = {
+            "prompt": prompt,
+            "cwd": os.getcwd(),
+            "env": dict(os.environ),
+            "version": __version__,
+        }
+        send_dict(conn, payload)
         send_fds(conn)
         child_pid = recv_int(conn)
         if child_pid is None:

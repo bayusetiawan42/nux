@@ -12,20 +12,20 @@ import time
 from collections.abc import Callable
 
 from sharkyo.server.defaults import PID_FILE, SOCKET_PATH
-from sharkyo.server.protocol import recv_fds, recv_prompt
+from sharkyo.server.protocol import recv_dict, recv_fds
 
-_turn_runner: Callable[[str, int, int, int, socket.socket], None] | None = None
+_turn_runner: Callable[[dict, int, int, int, socket.socket], None] | None = None
 
 
 def register_turn_runner(
-    runner: Callable[[str, int, int, int, socket.socket], None] | None,
+    runner: Callable[[dict, int, int, int, socket.socket], None] | None,
 ) -> None:
     global _turn_runner
     _turn_runner = runner
 
 
 def _default_turn_runner(
-    prompt: str, in_fd: int, out_fd: int, err_fd: int, conn: socket.socket
+    payload: dict, in_fd: int, out_fd: int, err_fd: int, conn: socket.socket
 ) -> None:
     for target, src in ((0, in_fd), (1, out_fd), (2, err_fd)):
         try:
@@ -38,11 +38,19 @@ def _default_turn_runner(
     except OSError:
         pass
 
+    cwd = payload.get("cwd")
+    if cwd:
+        try:
+            os.chdir(cwd)
+        except OSError:
+            pass
+
     try:
         conn.sendall(struct.pack("!i", os.getpid()))
     except OSError:
         pass
 
+    prompt = payload["prompt"]
     code = 0
     try:
         from sharkyo.core.agent import Agent
@@ -81,9 +89,9 @@ def _default_turn_runner(
     os._exit(0)
 
 
-def _run_turn(prompt: str, in_fd: int, out_fd: int, err_fd: int, conn: socket.socket) -> None:
+def _run_turn(payload: dict, in_fd: int, out_fd: int, err_fd: int, conn: socket.socket) -> None:
     runner = _turn_runner or _default_turn_runner
-    runner(prompt, in_fd, out_fd, err_fd, conn)
+    runner(payload, in_fd, out_fd, err_fd, conn)
 
 
 def _preload() -> None:
@@ -146,7 +154,7 @@ def stop() -> bool:
 
 def _serve(conn: socket.socket) -> None:
     try:
-        prompt = recv_prompt(conn)
+        payload = recv_dict(conn)
         fds = recv_fds(conn)
     except OSError:
         try:
@@ -157,7 +165,7 @@ def _serve(conn: socket.socket) -> None:
 
     pid = os.fork()
     if pid == 0:
-        _run_turn(prompt, *fds, conn)
+        _run_turn(payload, *fds, conn)
     for fd in fds:
         try:
             os.close(fd)

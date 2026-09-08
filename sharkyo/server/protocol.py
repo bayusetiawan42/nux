@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import array
+import json
 import socket
 import struct
 
@@ -13,14 +14,15 @@ def recv_exactly(conn: socket.socket, n: int) -> bytes:
     while len(buf) < n:
         chunk = conn.recv(n - len(buf))
         if not chunk:
-            raise OSError("client closed connection while sending prompt")
+            raise OSError("client closed connection while sending data")
         buf.extend(chunk)
     return bytes(buf)
 
 
-def recv_prompt(conn: socket.socket) -> str:
+def recv_dict(conn: socket.socket) -> dict:
     (length,) = struct.unpack("!I", recv_exactly(conn, 4))
-    return recv_exactly(conn, length).decode("utf-8")
+    raw = recv_exactly(conn, length).decode("utf-8")
+    return json.loads(raw)
 
 
 def recv_fds(conn: socket.socket, count: int = 3) -> list[int]:
@@ -48,8 +50,8 @@ def send_fds(conn: socket.socket) -> None:
     )
 
 
-def send_prompt(conn: socket.socket, prompt: str) -> None:
-    data = prompt.encode("utf-8")
+def send_dict(conn: socket.socket, payload: dict) -> None:
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     conn.sendall(struct.pack("!I", len(data)) + data)
 
 

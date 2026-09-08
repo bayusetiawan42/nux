@@ -19,7 +19,6 @@ SCHEMA = {
     "type": "function",
     "function": {
         "name": "CMD",
-        "strict": True,
         "description": (
             "Run a shell command on the user's machine. Output streams to the "
             "user's terminal live as it happens, and the full output is always "

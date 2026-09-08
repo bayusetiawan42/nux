@@ -10,7 +10,6 @@ RC_FILE: str = os.path.expanduser("~/.sharkyorc")
 _SET_RE = re.compile(r"^set\s+(\S+)\s+(.+)$", re.IGNORECASE)
 
 
-# You need to change protocols.py ConfigProvider too
 @dataclass
 class Config:
     model: str = "openai/gpt-oss-20b"
@@ -56,3 +55,7 @@ def load_config() -> Config:
                     pass
 
     return cfg
+
+
+def get_config(config: Config | None = None) -> Config:
+    return config if config is not None else load_config()

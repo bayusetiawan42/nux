@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from sharkyo.core.config import Config, load_config
+from sharkyo.core.config import Config, get_config
 from sharkyo.core.constants import SYSTEM_PROMPT
 from sharkyo.core.context import get_environment_context
 from sharkyo.core.request_manager import RequestManager
@@ -14,7 +14,7 @@ from sharkyo.search import BM25Searcher
 from sharkyo.storage.history import HistoryManager
 from sharkyo.storage.knowledge import KnowledgeManager
 from sharkyo.tools import dispatch_tool
-from sharkyo.tools.result import ToolResult
+from sharkyo.tools.result import ToolResult, serialize_tool_call
 from sharkyo.ui.display import print_error, print_reply, yaspin_if_tty
 
 if TYPE_CHECKING:
@@ -25,7 +25,7 @@ MAX_TOOL_ITERATIONS = 10
 
 class Agent:
     def __init__(self, config: Config | None = None) -> None:
-        self.config = config or load_config()
+        self.config = get_config(config)
         self.history_mgr = HistoryManager(self.config.max_history)
         self.knowledge_mgr = KnowledgeManager()
         self.request_mgr = RequestManager(self.config)
@@ -64,16 +64,6 @@ class Agent:
 
     # ---- Tool helpers ----
 
-    def _serialize_tool_call(self, tc: ChatCompletionMessageToolCall) -> dict:
-        return {
-            "id": tc.id,
-            "type": "function",
-            "function": {
-                "name": tc.function.name,
-                "arguments": tc.function.arguments,
-            },
-        }
-
     def _parse_tool_args(self, tc: ChatCompletionMessageToolCall) -> dict:
         try:
             return json.loads(tc.function.arguments)
@@ -103,7 +93,7 @@ class Agent:
             {
                 "role": "assistant",
                 "content": text_reply,
-                "tool_calls": [self._serialize_tool_call(tc) for tc, _ in executed],
+                "tool_calls": [serialize_tool_call(tc) for tc, _ in executed],
             }
         )
         for tc, result in executed:

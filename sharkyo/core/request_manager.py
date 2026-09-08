@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import time
 
-from sharkyo.core.config import Config, load_config
+from sharkyo.core.config import Config, get_config
 from sharkyo.core.errors import (
     AllKeysRateLimitedError,
     APIRequestError,
@@ -37,7 +37,7 @@ def _tools_schema() -> list:
 
 class RequestManager:
     def __init__(self, config: Config | None = None) -> None:
-        self.config = config or load_config()
+        self.config = get_config(config)
         if not has_keys():
             raise NoAPIKeyError("No active API key. Add one with: sharkyo --add-key KEY")
 

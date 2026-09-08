@@ -6,8 +6,6 @@ import sys
 from sharkyo.cli import main as run_cli
 from sharkyo.core.constants import setup_dirs
 from sharkyo.core.errors import SharkyoError
-from sharkyo.ui.display import print_error
-
 
 def main() -> None:
     setup_dirs()
@@ -16,14 +14,28 @@ def main() -> None:
     from sharkyo.server.client import run_remote
 
     exit_code = run_remote(prompt)
+
     if exit_code is not None:
         sys.exit(exit_code)
 
     try:
+        import os
+        from sharkyo import __version__
+        from sharkyo.server.protocol import Packet
         from sharkyo.core.agent import Agent
 
-        Agent().run(prompt)
+        packet = Packet(
+            type="CLIENT",
+            version=__version__,
+            cwd=os.getcwd(),
+            env=dict(os.environ),
+            message={"prompt": prompt},
+        )
+
+        Agent(packet=packet).run(prompt)
     except SharkyoError as e:
+        from sharkyo.ui.display import print_error
+
         print_error(str(e))
         sys.exit(1)
 

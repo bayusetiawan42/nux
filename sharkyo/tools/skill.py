@@ -1,13 +1,19 @@
 # tools/skill.py
 # Internal skill discovery tool.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from sharkyo.core.config import Config
 from sharkyo.search import search_skills
 from sharkyo.tools import register_tool
 from sharkyo.tools.result import ToolResult
 from sharkyo.ui.display import print_info
+
+if TYPE_CHECKING:
+    from sharkyo.server.protocol import Packet
 
 SCHEMA = {
     "type": "function",
@@ -39,12 +45,12 @@ class SkillArgs:
     query: str
 
     @classmethod
-    def from_dict(cls, args: dict) -> "SkillArgs":
+    def from_dict(cls, args: dict) -> SkillArgs:
         return cls(query=args.get("query", "").strip())
 
 
 @register_tool("SKILL")
-def execute(args: dict, config: Config | None = None) -> ToolResult:
+def execute(args: dict, config: Config | None, packet: Packet) -> ToolResult:
     parsed = SkillArgs.from_dict(args)
     if not parsed.query:
         return ToolResult(

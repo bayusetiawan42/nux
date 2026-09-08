@@ -1,9 +1,12 @@
 # tools/cmd.py
 # Shell command execution tool.
 
+from __future__ import annotations
+
 import subprocess
 import sys
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import questionary
 from rich.markdown import Markdown
@@ -14,6 +17,9 @@ from sharkyo.core.utils.helper import token_len
 from sharkyo.tools import register_tool
 from sharkyo.tools.result import ToolResult
 from sharkyo.ui.display import QUESTIONARY_STYLE_SPEC, console, is_interactive, print_info
+
+if TYPE_CHECKING:
+    from sharkyo.server.protocol import Packet
 
 SCHEMA = {
     "type": "function",
@@ -51,7 +57,7 @@ SCHEMA = {
                     ),
                 },
             },
-            "required": ["command", "stop_after_execution", "pass_output_to_user"],
+            "required": ["command", "pass_output_to_user"],
             "additionalProperties": False,
         },
     },
@@ -67,7 +73,7 @@ class CmdArgs:
     stop_after_execution: bool = False
 
     @classmethod
-    def from_dict(cls, args: dict) -> "CmdArgs":
+    def from_dict(cls, args: dict) -> CmdArgs:
         return cls(
             command=args.get("command", ""),
             stop_after_execution=args.get("stop_after_execution", False),
@@ -75,7 +81,13 @@ class CmdArgs:
         )
 
 
-def _run(command: str, config: Config, pass_output_to_user: bool = True) -> tuple[str, int]:
+def _run(
+    command: str,
+    config: Config,
+    pass_output_to_user: bool = True,
+    cwd: str | None = None,
+    env: dict[str, str] | None = None,
+) -> tuple[str, int]:
     # stdin is ignored (no interactive prompts get forwarded); stdout+stderr
     # are merged and piped so we can stream them live while also collecting
     # the full, untruncated transcript to hand back to the agent.
@@ -84,6 +96,8 @@ def _run(command: str, config: Config, pass_output_to_user: bool = True) -> tupl
         shell=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        cwd=cwd,
+        env=env,
     )
 
     printed_chars: int = 0
@@ -115,7 +129,7 @@ def _run(command: str, config: Config, pass_output_to_user: bool = True) -> tupl
 
 
 @register_tool("CMD")
-def execute(args: dict, config: Config) -> ToolResult:
+def execute(args: dict, config: Config, packet: Packet) -> ToolResult:
     parsed = CmdArgs.from_dict(args)
 
     console.print(Padding(Markdown(f"```bash\n$ {parsed.command}\n```"), (0, 0, 0, 2)))
@@ -142,7 +156,13 @@ def execute(args: dict, config: Config) -> ToolResult:
 
     try:
         # Run command
-        transcript, returncode = _run(parsed.command, config, parsed.pass_output_to_user)
+        transcript, returncode = _run(
+            parsed.command,
+            config,
+            parsed.pass_output_to_user,
+            cwd=packet.cwd,
+            env=packet.env,
+        )
 
     except KeyboardInterrupt:
         print_info("Command interrupted.")

@@ -10,7 +10,7 @@ from sharkyo.storage.history import HistoryManager
 from sharkyo.tools.knowledge import clear_all, delete_key, list_all_formatted
 from sharkyo.ui.display import console, print_error, print_info, print_success
 
-AVAILABLE_COMMANDS = "keys, clear, knowledge, clear-knowledge, delete-knowledge, server"
+AVAILABLE_COMMANDS = "keys, clear, knowledge, clear-knowledge, delete-knowledge, server, reload"
 
 _MSG_HISTORY_CLEARED = "History cleared."
 _MSG_NO_KNOWLEDGE = "No knowledge stored yet."
@@ -32,7 +32,8 @@ _DESCRIPTION = "Shark, yo. Operate the system!"
 
 _COMMANDS = [
     ("sharkyo <message>", "run a task"),
-    ("sharkyo server <start|stop|status>", "manage the background daemon"),
+    ("sharkyo server <start|stop|status|reload>", "manage the background daemon"),
+    ("sharkyo reload", "restart the background daemon"),
     ("sharkyo command <name> [args]", "run a built-in command"),
 ]
 
@@ -53,6 +54,7 @@ _EXAMPLES = [
     'sharkyo --clear -- "Change this repo to private"',
     "sharkyo command keys",
     "sharkyo server status",
+    "sharkyo reload",
 ]
 
 
@@ -204,8 +206,19 @@ def _handle_server(argv: list[str] | None) -> int | None:
         print_info("sharkyo server starting in the background...")
         return 0
 
+    if sub == "reload":
+        stop()
+        start_daemon()
+        for _ in range(40):
+            if running():
+                print_success("sharkyo server reloaded.")
+                return 0
+            time.sleep(0.1)
+        print_info("sharkyo server reloading in the background...")
+        return 0
+
     print_error(f"Unknown server command: {sub}")
-    print_info("Usage: sharkyo server <start|stop|status>")
+    print_info("Usage: sharkyo server <start|stop|status|reload>")
     return 1
 
 
@@ -292,7 +305,10 @@ def main() -> str:
 
     prompt = " ".join(args.prompt).strip()
 
-    # Handle subcommands: server, command
+    # Handle subcommands: server, command, reload
+    if prompt == "reload":
+        sys.exit(_handle_server(["reload"]))
+
     if prompt.startswith("server ") or prompt == "server":
         parts = prompt.split(None, 1)
         sys.exit(_handle_server(parts[1].split() if len(parts) > 1 else []))

@@ -2,12 +2,18 @@
 # Tool registry and dispatcher for Sharkyo.
 # Each tool module uses @register_tool to register itself.
 
+from __future__ import annotations
+
 import sys
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from sharkyo.core.config import Config
 from sharkyo.tools.result import ToolResult
 from sharkyo.ui.display import print_error
+
+if TYPE_CHECKING:
+    from sharkyo.server.protocol import Packet
 
 _REGISTRY: dict[str, Callable[..., ToolResult]] = {}
 TOOLS_SCHEMA: list[dict] = []
@@ -27,14 +33,14 @@ def register_tool(name: str):
     return decorator
 
 
-def dispatch_tool(name: str, args: dict, config: Config) -> ToolResult:
+def dispatch_tool(name: str, args: dict, config: Config, packet: Packet) -> ToolResult:
     handler = _REGISTRY.get(name)
 
     if not handler:
         print_error(f"Unknown tool requested: {name}")
         return ToolResult(output=f"Unknown tool: {name}", should_continue=False)
 
-    return handler(args, config)
+    return handler(args, config, packet)
 
 
 # Import tool modules to trigger @register_tool decorators

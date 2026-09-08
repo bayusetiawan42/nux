@@ -1,13 +1,19 @@
 # tools/knowledge.py
 # Persistent user knowledge tool.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from sharkyo.core.config import Config
 from sharkyo.storage.knowledge import KnowledgeManager
 from sharkyo.tools import register_tool
 from sharkyo.tools.result import ToolResult
 from sharkyo.ui.display import print_success
+
+if TYPE_CHECKING:
+    from sharkyo.server.protocol import Packet
 
 SCHEMA = {
     "type": "function",
@@ -51,7 +57,7 @@ class KnowledgeArgs:
     value: str = ""
 
     @classmethod
-    def from_dict(cls, args: dict) -> "KnowledgeArgs":
+    def from_dict(cls, args: dict) -> KnowledgeArgs:
         return cls(
             op=args.get("op", ""),
             key=args.get("key", "").strip(),
@@ -81,7 +87,7 @@ def clear_all() -> str:
 
 
 @register_tool("KNOWLEDGE")
-def execute(args: dict, config: Config | None = None) -> ToolResult:
+def execute(args: dict, config: Config | None, packet: Packet) -> ToolResult:
     parsed = KnowledgeArgs.from_dict(args)
     km = KnowledgeManager()
 

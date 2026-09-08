@@ -6,26 +6,33 @@ from __future__ import annotations
 import os
 import signal
 import socket
-import struct
 import sys
 import time
 from collections.abc import Callable
 
 from sharkyo.server.defaults import PID_FILE, SOCKET_PATH
-from sharkyo.server.protocol import recv_dict, recv_fds
+from sharkyo.server.protocol import Packet, recv_message, send_message
 
-_turn_runner: Callable[[dict, int, int, int, socket.socket], None] | None = None
+VERSION_MISMATCH_EXIT = -2
+
+_turn_runner: Callable[[Packet, int, int, int, socket.socket], None] | None = None
 
 
 def register_turn_runner(
-    runner: Callable[[dict, int, int, int, socket.socket], None] | None,
+    runner: Callable[[Packet, int, int, int, socket.socket], None] | None,
 ) -> None:
     global _turn_runner
     _turn_runner = runner
 
 
+def _send_server(conn: socket.socket, message: dict) -> None:
+    from sharkyo import __version__
+
+    send_message(conn, Packet(type="SERVER", version=__version__, cwd="", env={}, message=message))
+
+
 def _default_turn_runner(
-    payload: dict, in_fd: int, out_fd: int, err_fd: int, conn: socket.socket
+    packet: Packet, in_fd: int, out_fd: int, err_fd: int, conn: socket.socket
 ) -> None:
     for target, src in ((0, in_fd), (1, out_fd), (2, err_fd)):
         try:
@@ -38,19 +45,16 @@ def _default_turn_runner(
     except OSError:
         pass
 
-    cwd = payload.get("cwd")
-    if cwd:
+    if packet.cwd:
         try:
-            os.chdir(cwd)
+            os.chdir(packet.cwd)
         except OSError:
             pass
 
-    try:
-        conn.sendall(struct.pack("!i", os.getpid()))
-    except OSError:
-        pass
+    _send_server(conn, {"pid": os.getpid()})
 
-    prompt = payload["prompt"]
+    prompt = packet.message.get("prompt", "")
+
     code = 0
     try:
         from sharkyo.core.agent import Agent
@@ -58,7 +62,7 @@ def _default_turn_runner(
         from sharkyo.core.errors import SharkyoError
 
         try:
-            Agent(load_config()).run(prompt)
+            Agent(load_config(), packet=packet).run(prompt)
         except SharkyoError as e:
             from sharkyo.ui.display import print_error
 
@@ -68,7 +72,6 @@ def _default_turn_runner(
         code = 130
     except Exception:  # noqa: BLE001 - report anything unexpected to the caller.
         try:
-            # TODO create a dev-side error log at ~/.sharkyo/last_error.json
             import traceback
 
             from sharkyo.ui.display import print_error
@@ -78,10 +81,7 @@ def _default_turn_runner(
             pass
         code = 1
 
-    try:
-        conn.sendall(struct.pack("!i", code))
-    except OSError:
-        pass
+    _send_server(conn, {"exit_code": code})
     try:
         conn.close()
     except OSError:
@@ -89,9 +89,9 @@ def _default_turn_runner(
     os._exit(0)
 
 
-def _run_turn(payload: dict, in_fd: int, out_fd: int, err_fd: int, conn: socket.socket) -> None:
+def _run_turn(packet: Packet, in_fd: int, out_fd: int, err_fd: int, conn: socket.socket) -> None:
     runner = _turn_runner or _default_turn_runner
-    runner(payload, in_fd, out_fd, err_fd, conn)
+    runner(packet, in_fd, out_fd, err_fd, conn)
 
 
 def _preload() -> None:
@@ -154,8 +154,7 @@ def stop() -> bool:
 
 def _serve(conn: socket.socket) -> None:
     try:
-        payload = recv_dict(conn)
-        fds = recv_fds(conn)
+        packet, fds = recv_message(conn)
     except OSError:
         try:
             conn.close()
@@ -163,9 +162,20 @@ def _serve(conn: socket.socket) -> None:
             pass
         return
 
+    from sharkyo import __version__
+
+    if packet.version != __version__:
+        _send_server(conn, {"exit_code": VERSION_MISMATCH_EXIT})
+        try:
+            conn.close()
+        except OSError:
+            pass
+        stop()
+        return
+
     pid = os.fork()
     if pid == 0:
-        _run_turn(payload, *fds, conn)
+        _run_turn(packet, *fds, conn)
     for fd in fds:
         try:
             os.close(fd)

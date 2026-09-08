@@ -1,7 +1,10 @@
 # tools/questionary.py
 # Interactive questionary tool.
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import questionary as q
 
@@ -9,6 +12,9 @@ from sharkyo.core.config import Config
 from sharkyo.tools import register_tool
 from sharkyo.tools.result import ToolResult
 from sharkyo.ui.display import QUESTIONARY_STYLE_SPEC, console, is_interactive, print_info
+
+if TYPE_CHECKING:
+    from sharkyo.server.protocol import Packet
 
 SCHEMA = {
     "type": "function",
@@ -79,7 +85,7 @@ class QuestionSpec:
     default: str | None = None
 
     @classmethod
-    def from_dict(cls, spec: dict) -> "QuestionSpec":
+    def from_dict(cls, spec: dict) -> QuestionSpec:
         return cls(
             key=spec.get("key", "answer"),
             type=spec.get("type", "text"),
@@ -95,7 +101,7 @@ class QuestionaryArgs:
     questions: list[QuestionSpec]
 
     @classmethod
-    def from_dict(cls, args: dict) -> "QuestionaryArgs":
+    def from_dict(cls, args: dict) -> QuestionaryArgs:
         return cls(
             intro=args.get("intro", "").strip(),
             questions=[QuestionSpec.from_dict(s) for s in args.get("questions", [])],
@@ -138,7 +144,7 @@ def _format_answer(value: object) -> str:
 
 
 @register_tool("QUESTIONARY")
-def execute(args: dict, config: Config | None = None) -> ToolResult:
+def execute(args: dict, config: Config | None, packet: Packet) -> ToolResult:
     parsed = QuestionaryArgs.from_dict(args)
 
     if not parsed.questions:

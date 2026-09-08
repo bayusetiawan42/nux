@@ -1,5 +1,5 @@
 # server/protocol.py
-# Socket wire protocol helpers for SCM_RIGHTS FD passing.
+# Universal socket wire protocol — Packet-based send/recv with SCM_RIGHTS FD passing.
 
 from __future__ import annotations
 
@@ -7,9 +7,46 @@ import array
 import json
 import socket
 import struct
+from dataclasses import dataclass, field
+from typing import Any
 
 
-def recv_exactly(conn: socket.socket, n: int) -> bytes:
+@dataclass
+class Packet:
+    type: str  # "CLIENT" | "SERVER"
+    version: str
+    cwd: str
+    env: dict[str, str]
+
+    # Standard message dict:
+    # "prompt": str   -> prompt to model  (server/daemon)
+
+    message: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {
+            "type": self.type,
+            "version": self.version,
+            "cwd": self.cwd,
+            "env": self.env,
+            "message": self.message,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Packet:
+        return cls(
+            type=data["type"],
+            version=data.get("version", ""),
+            cwd=data.get("cwd", ""),
+            env=data.get("env", {}),
+            message=data.get("message", {}),
+        )
+
+
+# Internal helpers (private)
+
+
+def _recv_exactly(conn: socket.socket, n: int) -> bytes:
     buf = bytearray()
     while len(buf) < n:
         chunk = conn.recv(n - len(buf))
@@ -19,13 +56,7 @@ def recv_exactly(conn: socket.socket, n: int) -> bytes:
     return bytes(buf)
 
 
-def recv_dict(conn: socket.socket) -> dict:
-    (length,) = struct.unpack("!I", recv_exactly(conn, 4))
-    raw = recv_exactly(conn, length).decode("utf-8")
-    return json.loads(raw)
-
-
-def recv_fds(conn: socket.socket, count: int = 3) -> list[int]:
+def _recv_fds(conn: socket.socket, count: int = 3) -> list[int]:
     fds: list[int] = []
     spins = 0
     while len(fds) < count:
@@ -42,7 +73,7 @@ def recv_fds(conn: socket.socket, count: int = 3) -> list[int]:
     return fds[:count]
 
 
-def send_fds(conn: socket.socket) -> None:
+def _send_fds(conn: socket.socket) -> None:
     fds = array.array("i", [0, 1, 2]).tobytes()
     conn.sendmsg(
         [b" "],
@@ -50,12 +81,7 @@ def send_fds(conn: socket.socket) -> None:
     )
 
 
-def send_dict(conn: socket.socket, payload: dict) -> None:
-    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    conn.sendall(struct.pack("!I", len(data)) + data)
-
-
-def recv_int(conn: socket.socket) -> int | None:
+def _recv_int(conn: socket.socket) -> int | None:
     buf = b""
     while len(buf) < 4:
         try:
@@ -66,3 +92,23 @@ def recv_int(conn: socket.socket) -> int | None:
             return None
         buf += chunk
     return struct.unpack("!i", buf)[0]
+
+
+# Public API
+
+
+def send_message(conn: socket.socket, packet: Packet) -> None:
+    data = json.dumps(packet.to_dict(), ensure_ascii=False).encode("utf-8")
+    conn.sendall(struct.pack("!I", len(data)) + data)
+    if packet.type == "CLIENT":
+        _send_fds(conn)
+
+
+def recv_message(conn: socket.socket) -> tuple[Packet, list[int]]:
+    (length,) = struct.unpack("!I", _recv_exactly(conn, 4))
+    raw = _recv_exactly(conn, length).decode("utf-8")
+    packet = Packet.from_dict(json.loads(raw))
+    fds: list[int] = []
+    if packet.type == "CLIENT":
+        fds = _recv_fds(conn)
+    return packet, fds

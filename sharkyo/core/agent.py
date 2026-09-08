@@ -20,12 +20,15 @@ from sharkyo.ui.display import print_error, print_reply, yaspin_if_tty
 if TYPE_CHECKING:
     from groq.types.chat import ChatCompletionMessageToolCall
 
+    from sharkyo.server.protocol import Packet
+
 MAX_TOOL_ITERATIONS = 10
 
 
 class Agent:
-    def __init__(self, config: Config | None = None) -> None:
+    def __init__(self, config: Config | None = None, packet: Packet | None = None) -> None:
         self.config = get_config(config)
+        self.packet = packet
         self.history_mgr = HistoryManager(self.config.max_history)
         self.knowledge_mgr = KnowledgeManager()
         self.request_mgr = RequestManager(self.config)
@@ -76,7 +79,7 @@ class Agent:
     ) -> tuple[list[tuple[ChatCompletionMessageToolCall, ToolResult]], bool]:
         executed: list[tuple[ChatCompletionMessageToolCall, ToolResult]] = []
         for tc in tool_calls:
-            result = dispatch_tool(tc.function.name, self._parse_tool_args(tc), self.config)
+            result = dispatch_tool(tc.function.name, self._parse_tool_args(tc), self.config, self.packet)
             executed.append((tc, result))
             if not result.should_continue:
                 return executed, True

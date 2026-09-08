@@ -5,11 +5,7 @@ import sys
 import time
 from dataclasses import dataclass
 
-from sharkyo.storage.apikeys import active_key, add_key, list_keys
-from sharkyo.storage.history import HistoryManager
-from sharkyo.tools.knowledge import clear_all, delete_key, list_all_formatted
 from sharkyo.ui.display import console, print_error, print_info, print_success
-from sharkyo.core.utils.helper import token_len
 
 AVAILABLE_COMMANDS = "clear, knowledge, clear-knowledge, delete-knowledge, server, reload"
 
@@ -166,6 +162,7 @@ def _mask_key(key: str) -> str:
 
 
 def _print_knowledge() -> None:
+    from sharkyo.tools.knowledge import list_all_formatted
     formatted = list_all_formatted()
     if not formatted:
         print_info(_MSG_NO_KNOWLEDGE)
@@ -176,6 +173,7 @@ def _print_knowledge() -> None:
         console.print(f"  [cyan]{key.strip()}[/cyan] = {value.strip()}")
 
 def _print_models(key_index: str | None) -> None:
+    from sharkyo.storage.apikeys import active_key, list_keys
     keys = list_keys()
     if not keys:
         print_info("No API keys stored. Add one with: sharkyo --add-key KEY")
@@ -232,6 +230,9 @@ def _print_stats(key_index: str | None) -> None:
     import time as _time
     from sharkyo.core.config import load_config, _fetch_context_window
     from sharkyo.core.llm import Groq
+    from sharkyo.core.utils.helper import token_len
+    from sharkyo.storage.apikeys import active_key, list_keys
+    from sharkyo.storage.history import HistoryManager
     from rich.table import Table
 
     keys = list_keys()
@@ -353,6 +354,7 @@ def _handle_command(argv: list[str] | None) -> int | None:
     cmd_args = argv[1:]
 
     if name == "clear":
+        from sharkyo.storage.history import HistoryManager
         HistoryManager().clear()
         print_success(_MSG_HISTORY_CLEARED)
         return 0
@@ -362,10 +364,12 @@ def _handle_command(argv: list[str] | None) -> int | None:
         return 0
 
     if name == "clear-knowledge":
+        from sharkyo.tools.knowledge import clear_all
         clear_all()
         return 0
 
     if name == "delete-knowledge":
+        from sharkyo.tools.knowledge import delete_key
         if not cmd_args:
             print_error("Usage: sharkyo command delete-knowledge <key>")
             return 1
@@ -391,6 +395,7 @@ def main() -> str:
     ran_action = False
 
     if args.add_key:
+        from sharkyo.storage.apikeys import add_key
         add_key(args.add_key, base_url=args.base_url)
         print_success("API key added.")
         ran_action = True
@@ -404,6 +409,7 @@ def main() -> str:
         ran_action = True
 
     if args.clear:
+        from sharkyo.storage.history import HistoryManager
         HistoryManager().clear()
         print_success(_MSG_HISTORY_CLEARED)
         ran_action = True
@@ -413,10 +419,12 @@ def main() -> str:
         ran_action = True
 
     if args.clear_knowledge:
+        from sharkyo.tools.knowledge import clear_all
         clear_all()
         ran_action = True
 
     if args.delete_knowledge:
+        from sharkyo.tools.knowledge import delete_key
         success, msg = delete_key(args.delete_knowledge)
         if success:
             print_success(msg)

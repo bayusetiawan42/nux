@@ -9,8 +9,9 @@ from sharkyo.storage.apikeys import active_key, add_key, list_keys
 from sharkyo.storage.history import HistoryManager
 from sharkyo.tools.knowledge import clear_all, delete_key, list_all_formatted
 from sharkyo.ui.display import console, print_error, print_info, print_success
+from sharkyo.core.utils.helper import token_len
 
-AVAILABLE_COMMANDS = "keys, clear, knowledge, clear-knowledge, delete-knowledge, server, reload"
+AVAILABLE_COMMANDS = "clear, knowledge, clear-knowledge, delete-knowledge, server, reload"
 
 _MSG_HISTORY_CLEARED = "History cleared."
 _MSG_NO_KNOWLEDGE = "No knowledge stored yet."
@@ -21,8 +22,8 @@ class CliArgs:
     prompt: list[str]
     add_key: str | None = None
     base_url: str | None = None
-    keys: bool = False
     models: str | None = None  # None = flag only, str = key index
+    stats: str | None = None   # None = no stats, "" = all keys, str = key index
     clear: bool = False
     knowledge: bool = False
     delete_knowledge: str | None = None
@@ -41,8 +42,9 @@ _COMMANDS = [
 _OPTIONS = [
     ("--add-key <key>", "add a Groq API key"),
     ("--base-url <url>", "set custom base URL for --add-key"),
-    ("--keys", "list stored API keys and rate-limit status"),
     ("--models [KEY_INDEX]", "list available models for current or specific key"),
+    ("--stats [KEY_INDEX]", "show keys, model, context window, and usage"),
+    ("--keys", "show all keys (alias for --stats)"),
     ("--clear", "clear chat history"),
     ("--knowledge", "show stored persistent facts"),
     ("--delete-knowledge <key>", "delete a single knowledge entry"),
@@ -119,8 +121,6 @@ def parse(argv: list[str] | None = None) -> CliArgs:
                 print_error("--delete-knowledge requires a value")
                 sys.exit(1)
             args.delete_knowledge = argv[i]
-        elif arg == "--keys":
-            args.keys = True
         elif arg == "--models" or arg.startswith("--models="):
             # --models alone, or --models=INDEX
             if "=" in arg:
@@ -130,6 +130,16 @@ def parse(argv: list[str] | None = None) -> CliArgs:
                 args.models = argv[i]
             else:
                 args.models = ""
+        elif arg == "--stats" or arg.startswith("--stats="):
+            if "=" in arg:
+                args.stats = arg.split("=", 1)[1] or ""
+            elif i + 1 < n and not argv[i + 1].startswith("-"):
+                i += 1
+                args.stats = argv[i]
+            else:
+                args.stats = ""
+        elif arg == "--keys":
+            args.stats = ""
         elif arg == "--clear":
             args.clear = True
         elif arg == "--knowledge":
@@ -155,26 +165,6 @@ def _mask_key(key: str) -> str:
     return key[:6] + "..." + key[-4:]
 
 
-def _print_keys() -> None:
-    keys = list_keys()
-    if not keys:
-        print_info("No API keys stored. Add one with: sharkyo --add-key KEY")
-        return
-    now = int(time.time())
-    console.print("[bold cyan]Stored API keys:[/bold cyan]")
-    for k in keys:
-        if k.reset_at > now:
-            wait = k.reset_at - now
-            status = f"[yellow]rate-limited ({wait}s remaining)[/yellow]"
-        elif k.active:
-            status = "[green]active[/green]"
-        else:
-            status = "inactive"
-        masked = _mask_key(k.key)
-        base = f" base_url={k.base_url}" if k.base_url else ""
-        console.print(f"  [{k.id}] {masked}{base}  {status}")
-
-
 def _print_knowledge() -> None:
     formatted = list_all_formatted()
     if not formatted:
@@ -198,7 +188,7 @@ def _print_models(key_index: str | None) -> None:
         idx = int(key_index)
         match = [k for k in keys if k.id == idx]
         if not match:
-            print_error(f"Key index {idx} not found. Use --keys to see available indices.")
+            print_error(f"Key index {idx} not found. Use --stats to see available indices.")
             return
         target_key = match[0]
     else:
@@ -234,6 +224,74 @@ def _print_models(key_index: str | None) -> None:
         owner = getattr(m, "owned_by", "-")
         
         table.add_row(m.id, ctx_str, owner)
+
+    console.print(table)
+
+
+def _print_stats(key_index: str | None) -> None:
+    import time as _time
+    from sharkyo.core.config import load_config, _fetch_context_window
+    from sharkyo.core.llm import Groq
+    from rich.table import Table
+
+    keys = list_keys()
+    if not keys:
+        print_info("No API keys stored. Add one with: sharkyo --add-key KEY")
+        return
+
+    if key_index:
+        idx = int(key_index)
+        match = [k for k in keys if k.id == idx]
+        if not match:
+            print_error(f"Key index {idx} not found. Use --stats to see available indices.")
+            return
+        target_keys = [match[0]]
+    else:
+        target_keys = keys
+
+    config = load_config()
+    history = HistoryManager(config.max_history).load()
+    history_tokens = sum(token_len(m.get("content") or "") for m in history)
+
+    # Fetch owned_by from the API for the current model
+    owner_map: dict[str, str] = {}
+    try:
+        ak = active_key() or keys[0]
+        client = Groq()(api_key=ak.key, base_url=ak.base_url)
+        for m in client.models.list().data:
+            owner_map[m.id] = getattr(m, "owned_by", "-")
+    except Exception:  # noqa: BLE001
+        pass
+
+    now = int(_time.time())
+    table = Table(box=None, padding=(0, 2, 0, 0))
+    table.add_column("Key", style="dim", justify="left")
+    table.add_column("Model", style="cyan", justify="left")
+    table.add_column("Owned By", style="blue", justify="left")
+    table.add_column("Context", style="green", justify="right")
+    table.add_column("History", style="yellow", justify="right")
+    table.add_column("Status", justify="left")
+
+    for k in target_keys:
+        ctx = _fetch_context_window(config.model, k.key, k.base_url)
+        ctx_str = f"{ctx:,}" if ctx else "?"
+        owner = owner_map.get(config.model, "-")
+        hist_str = f"{len(history)} msgs / ~{history_tokens:,} tok"
+        if k.active:
+            status = "[green]current[/green]"
+        elif k.reset_at > now:
+            wait = k.reset_at - now
+            status = f"[yellow]rate-limited ({wait}s)[/yellow]"
+        else:
+            status = "inactive"
+        table.add_row(
+            f"[{k.id}] {_mask_key(k.key)}",
+            config.model,
+            owner,
+            ctx_str,
+            hist_str,
+            status,
+        )
 
     console.print(table)
 
@@ -294,10 +352,6 @@ def _handle_command(argv: list[str] | None) -> int | None:
     name = argv[0]
     cmd_args = argv[1:]
 
-    if name == "keys":
-        _print_keys()
-        return 0
-
     if name == "clear":
         HistoryManager().clear()
         print_success(_MSG_HISTORY_CLEARED)
@@ -341,12 +395,12 @@ def main() -> str:
         print_success("API key added.")
         ran_action = True
 
-    if args.keys:
-        _print_keys()
-        ran_action = True
-
     if args.models is not None:
         _print_models(args.models or None)
+        ran_action = True
+
+    if args.stats is not None:
+        _print_stats(args.stats or None)
         ran_action = True
 
     if args.clear:

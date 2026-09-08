@@ -9,7 +9,6 @@ from sharkyo.cli import parse
 def test_prompt_alone():
     args = parse(["compress", "this", "folder"])
     assert args.prompt == ["compress", "this", "folder"]
-    assert not args.keys
 
 
 def test_prompt_with_flag():
@@ -19,9 +18,9 @@ def test_prompt_with_flag():
 
 
 def test_flag_first_then_prompt():
-    args = parse(["--keys", "list", "my", "files"])
-    assert args.keys is True
-    assert args.prompt == ["list", "my", "files"]
+    args = parse(["--stats", "list", "my", "files"])
+    assert args.stats == "list"
+    assert args.prompt == ["my", "files"]
 
 
 def test_add_key_options():
@@ -57,8 +56,8 @@ def test_double_dash_only():
 
 
 def test_command_subcommand():
-    args = parse(["command", "keys"])
-    assert args.prompt == ["command", "keys"]
+    args = parse(["command", "clear"])
+    assert args.prompt == ["command", "clear"]
 
 
 def test_command_subcommand_with_args():
@@ -78,12 +77,25 @@ def test_delete_knowledge_option():
 
 
 def test_all_flags():
-    args = parse(["--keys", "--clear", "--knowledge", "--clear-knowledge"])
-    assert args.keys is True
+    args = parse(["--stats", "--clear", "--knowledge", "--clear-knowledge"])
+    assert args.stats == ""
     assert args.clear is True
     assert args.knowledge is True
     assert args.clear_knowledge is True
     assert args.prompt == []
+
+
+def test_stats_flag():
+    args = parse(["--stats"])
+    assert args.stats == ""
+
+def test_stats_with_index():
+    args = parse(["--stats", "2"])
+    assert args.stats == "2"
+
+def test_stats_equals_syntax():
+    args = parse(["--stats=3"])
+    assert args.stats == "3"
 
 
 def test_unknown_flag_exits():

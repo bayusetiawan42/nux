@@ -85,15 +85,15 @@ def auto_adjust_config(cfg: Config, key: str, base_url: str | None = None) -> Co
         return cfg
 
     # Only auto-adjust fields still at their defaults
+    # Reserve ~40% for system prompt + completion headroom (hemat usage).
+    usable = int(ctx * 0.6)
+
     if cfg.max_history == _DEFAULTS["max_history"]:
-        # Reserve ~20% for system prompt + completion headroom.
-        # each history message ~300 tokens
-        usable = int(ctx * 0.8)
-        cfg.max_history = max(6, min(usable // 300, 50))
+        # each history message ~300 tokens; keep history compact
+        cfg.max_history = max(3, min(usable // 400, 25))
 
     if cfg.max_command_output_tokens == _DEFAULTS["max_command_output_tokens"]:
-        # Command output can take up to ~1/6 of usable context
-        usable = int(ctx * 0.8)
-        cfg.max_command_output_tokens = max(600, min(usable // 6, 8000))
+        # Command output takes up to ~1/10 of usable context
+        cfg.max_command_output_tokens = max(400, min(usable // 10, 4000))
 
     return cfg

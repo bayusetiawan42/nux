@@ -185,7 +185,6 @@ def _print_knowledge() -> None:
         key, _, value = line.partition("=")
         console.print(f"  [cyan]{key.strip()}[/cyan] = {value.strip()}")
 
-
 def _print_models(key_index: str | None) -> None:
     keys = list_keys()
     if not keys:
@@ -193,6 +192,7 @@ def _print_models(key_index: str | None) -> None:
         return
 
     from sharkyo.core.llm import Groq
+    from rich.table import Table
 
     if key_index:
         idx = int(key_index)
@@ -217,13 +217,25 @@ def _print_models(key_index: str | None) -> None:
         return
 
     label = f"key [{target_key.id}]" if key_index else "active key"
-    console.print(f"[bold cyan]Available models ({label}):[/bold cyan]")
+    
+    table = Table(
+        title=None,
+        box=None,
+        padding=(0, 2, 0, 0)
+    )
+    
+    table.add_column("Model ID", style="dim", justify="left")
+    table.add_column("Context Window", style="green", justify="right")
+    table.add_column("Owned By", style="blue", justify="left")
+
     for m in models:
         ctx = getattr(m, "context_window", None)
-        ctx_str = f" ctx={ctx:,}" if ctx else ""
-        owner = getattr(m, "owned_by", "")
-        owner_str = f"  ({owner})" if owner else ""
-        console.print(f"  [green]{m.id}[/green]{ctx_str}{owner_str}")
+        ctx_str = f"{ctx:,}" if ctx else "-"
+        owner = getattr(m, "owned_by", "-")
+        
+        table.add_row(m.id, ctx_str, owner)
+
+    console.print(table)
 
 
 def _handle_server(argv: list[str] | None) -> int | None:

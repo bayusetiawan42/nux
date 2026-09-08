@@ -6,9 +6,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from sharkyo.core.config import Config, get_config
 from sharkyo.core.constants import SYSTEM_PROMPT
-from sharkyo.core.context import get_environment_context
 from sharkyo.core.request_manager import RequestManager
 from sharkyo.search import BM25Searcher
 from sharkyo.storage.history import HistoryManager
@@ -20,32 +18,33 @@ from sharkyo.ui.display import print_error, print_reply, yaspin_if_tty
 if TYPE_CHECKING:
     from groq.types.chat import ChatCompletionMessageToolCall
 
-    from sharkyo.server.protocol import Packet
+    from sharkyo.server.daemon import Session
 
 MAX_TOOL_ITERATIONS = 10
 
 
 class Agent:
-    def __init__(self, config: Config | None = None, packet: Packet | None = None) -> None:
-        self.config = get_config(config)
-        self.packet = packet
-        self.history_mgr = HistoryManager(self.config.max_history)
+    def __init__(self, session: Session) -> None:
+        self.session = session
+        self.history_mgr = HistoryManager(self.session.config.max_history)
         self.knowledge_mgr = KnowledgeManager()
-        self.request_mgr = RequestManager(self.config)
+        self.request_mgr = RequestManager(self.session.config)
         self._searcher = BM25Searcher()
 
-    # ---- Prompt construction ----
+    #Prompt construction
 
     def _build_system_prompt(self) -> str:
-        prompt = SYSTEM_PROMPT
+        parts = [SYSTEM_PROMPT]
 
         entries = self.knowledge_mgr.list_all()
         if entries:
             block = "\n".join(f"{k} = {v}" for k, v in entries)
-            prompt += f"\n\n<user_knowledge>\n{block}\n</user_knowledge>"
+            parts.append(f"<user_knowledge>\n{block}\n</user_knowledge>")
 
-        prompt += f"\n\n<environment_context>\n{get_environment_context()}\n</environment_context>"
-        return prompt
+        env_ctx = self.session.get_environment_context()
+        parts.append(f"<environment_context>\n{env_ctx}\n</environment_context>")
+
+        return "\n\n".join(parts)
 
     def _build_skill_hint(self, user_input: str) -> str | None:
         results = self._searcher.search(user_input, top_k=3)
@@ -65,7 +64,7 @@ class Agent:
             + [{"role": "user", "content": augmented_input}]
         )
 
-    # ---- Tool helpers ----
+    #Tool helpers
 
     def _parse_tool_args(self, tc: ChatCompletionMessageToolCall) -> dict:
         try:
@@ -79,7 +78,7 @@ class Agent:
     ) -> tuple[list[tuple[ChatCompletionMessageToolCall, ToolResult]], bool]:
         executed: list[tuple[ChatCompletionMessageToolCall, ToolResult]] = []
         for tc in tool_calls:
-            result = dispatch_tool(tc.function.name, self._parse_tool_args(tc), self.config, self.packet)
+            result = dispatch_tool(tc.function.name, self._parse_tool_args(tc), self.session)
             executed.append((tc, result))
             if not result.should_continue:
                 return executed, True
@@ -109,7 +108,7 @@ class Agent:
             )
             self.history_mgr.append_tool_result(tc.id, result.output or "")
 
-    # ---- Main loop ----
+    #Main loop
 
     def _run_tool_loop(self, messages: list[dict]) -> None:
         text_reply = ""
@@ -142,7 +141,7 @@ class Agent:
         print_error("Reached maximum tool iterations; stopping.")
         self.history_mgr.append_assistant(text_reply or None)
 
-    # ---- Public API ----
+    #Public API
 
     def run(self, user_input: str) -> None:
         history = self.history_mgr.load()

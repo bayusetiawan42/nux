@@ -19,7 +19,7 @@ class SearchEngine(Protocol):
 
 @runtime_checkable
 class ToolHandler(Protocol):
-    def __call__(self, args: dict, config: object) -> object: ...
+    def __call__(self, args: dict, session: object) -> object: ...
 
 
 @runtime_checkable

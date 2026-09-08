@@ -7,6 +7,7 @@ from sharkyo.cli import main as run_cli
 from sharkyo.core.constants import setup_dirs
 from sharkyo.core.errors import SharkyoError
 
+
 def main() -> None:
     setup_dirs()
     prompt = run_cli()
@@ -19,20 +20,11 @@ def main() -> None:
         sys.exit(exit_code)
 
     try:
-        import os
-        from sharkyo import __version__
-        from sharkyo.server.protocol import Packet
         from sharkyo.core.agent import Agent
+        from sharkyo.server.daemon import Session
 
-        packet = Packet(
-            type="CLIENT",
-            version=__version__,
-            cwd=os.getcwd(),
-            env=dict(os.environ),
-            message={"prompt": prompt},
-        )
-
-        Agent(packet=packet).run(prompt)
+        session = Session.create(prompt)
+        Agent(session).run(prompt)
     except SharkyoError as e:
         from sharkyo.ui.display import print_error
 

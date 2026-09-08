@@ -6,14 +6,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from sharkyo.core.config import Config
 from sharkyo.search import search_skills
 from sharkyo.tools import register_tool
 from sharkyo.tools.result import ToolResult
 from sharkyo.ui.display import print_info
 
 if TYPE_CHECKING:
-    from sharkyo.server.protocol import Packet
+    from sharkyo.server.daemon import Session
 
 SCHEMA = {
     "type": "function",
@@ -50,7 +49,7 @@ class SkillArgs:
 
 
 @register_tool("SKILL")
-def execute(args: dict, config: Config | None, packet: Packet) -> ToolResult:
+def execute(args: dict, session: Session) -> ToolResult:
     parsed = SkillArgs.from_dict(args)
     if not parsed.query:
         return ToolResult(

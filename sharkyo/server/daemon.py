@@ -6,14 +6,71 @@ from __future__ import annotations
 import os
 import signal
 import socket
+import subprocess
 import sys
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime
 
 from sharkyo.server.defaults import PID_FILE, SOCKET_PATH
 from sharkyo.server.protocol import Packet, recv_message, send_message
 
 VERSION_MISMATCH_EXIT = -2
+
+
+def _run_git(args: list[str]) -> str:
+    try:
+        return (
+            subprocess.check_output(
+                ["git"] + args,
+                stderr=subprocess.DEVNULL,
+                timeout=0.2,
+            )
+            .decode("utf-8")
+            .strip()
+        )
+    except (subprocess.SubprocessError, OSError):
+        return ""
+
+
+@dataclass
+class Session:
+    config: object  # Config
+    packet: Packet
+
+    @classmethod
+    def create(cls, prompt: str, cwd: str | None = None) -> Session:
+        from sharkyo import __version__
+        from sharkyo.core.config import load_config
+
+        config = load_config()
+        packet = Packet(
+            type="CLIENT",
+            version=__version__,
+            cwd=cwd or os.getcwd(),
+            env=dict(os.environ),
+            message={"prompt": prompt},
+        )
+        return cls(config=config, packet=packet)
+
+    def get_environment_context(self) -> str:
+        cwd = self.packet.cwd or os.getcwd()
+        git_remote = _run_git(["config", "--get", "remote.origin.url"])
+        git_branch = _run_git(["branch", "--show-current"])
+
+        lines = [
+            f"Current Time: {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"Working Directory (CWD): {cwd}",
+        ]
+
+        if git_remote:
+            lines.append(f"Git Remote (origin): {git_remote}")
+        if git_branch:
+            lines.append(f"Git Branch: {git_branch}")
+
+        return "\n".join(lines)
+
 
 _turn_runner: Callable[[Packet, int, int, int, socket.socket], None] | None = None
 
@@ -62,7 +119,8 @@ def _default_turn_runner(
         from sharkyo.core.errors import SharkyoError
 
         try:
-            Agent(load_config(), packet=packet).run(prompt)
+            session = Session(config=load_config(), packet=packet)
+            Agent(session).run(prompt)
         except SharkyoError as e:
             from sharkyo.ui.display import print_error
 

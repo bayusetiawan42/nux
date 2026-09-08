@@ -12,14 +12,13 @@ import questionary
 from rich.markdown import Markdown
 from rich.padding import Padding
 
-from sharkyo.core.config import Config
 from sharkyo.core.utils.helper import token_len
 from sharkyo.tools import register_tool
 from sharkyo.tools.result import ToolResult
 from sharkyo.ui.display import QUESTIONARY_STYLE_SPEC, console, is_interactive, print_info
 
 if TYPE_CHECKING:
-    from sharkyo.server.protocol import Packet
+    from sharkyo.server.daemon import Session
 
 SCHEMA = {
     "type": "function",
@@ -83,7 +82,7 @@ class CmdArgs:
 
 def _run(
     command: str,
-    config: Config,
+    config: object,
     pass_output_to_user: bool = True,
     cwd: str | None = None,
     env: dict[str, str] | None = None,
@@ -129,7 +128,7 @@ def _run(
 
 
 @register_tool("CMD")
-def execute(args: dict, config: Config, packet: Packet) -> ToolResult:
+def execute(args: dict, session: Session) -> ToolResult:
     parsed = CmdArgs.from_dict(args)
 
     console.print(Padding(Markdown(f"```bash\n$ {parsed.command}\n```"), (0, 0, 0, 2)))
@@ -158,10 +157,10 @@ def execute(args: dict, config: Config, packet: Packet) -> ToolResult:
         # Run command
         transcript, returncode = _run(
             parsed.command,
-            config,
+            session.config,
             parsed.pass_output_to_user,
-            cwd=packet.cwd,
-            env=packet.env,
+            cwd=session.packet.cwd,
+            env=session.packet.env,
         )
 
     except KeyboardInterrupt:
@@ -171,8 +170,10 @@ def execute(args: dict, config: Config, packet: Packet) -> ToolResult:
     if sys.stdout.isatty() and returncode != 0:
         console.print(f"\n  [red]![/red] Command exited with code {returncode}.")
 
-    if token_len(transcript) > config.max_command_output_tokens:
-        transcript = transcript[: config.max_command_output_tokens] + "[ ... Output truncated ... ]"
+    if token_len(transcript) > session.config.max_command_output_tokens:
+        transcript = (
+            transcript[: session.config.max_command_output_tokens] + "[ ... Output truncated ... ]"
+        )
 
     output = f"{transcript}\n[ exit code: {returncode} ]"
     return ToolResult(output=output, should_continue=not parsed.stop_after_execution)

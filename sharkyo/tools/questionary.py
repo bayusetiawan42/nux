@@ -8,13 +8,12 @@ from typing import TYPE_CHECKING
 
 import questionary as q
 
-from sharkyo.core.config import Config
 from sharkyo.tools import register_tool
 from sharkyo.tools.result import ToolResult
 from sharkyo.ui.display import QUESTIONARY_STYLE_SPEC, console, is_interactive, print_info
 
 if TYPE_CHECKING:
-    from sharkyo.server.protocol import Packet
+    from sharkyo.server.daemon import Session
 
 SCHEMA = {
     "type": "function",
@@ -144,7 +143,7 @@ def _format_answer(value: object) -> str:
 
 
 @register_tool("QUESTIONARY")
-def execute(args: dict, config: Config | None, packet: Packet) -> ToolResult:
+def execute(args: dict, session: Session) -> ToolResult:
     parsed = QuestionaryArgs.from_dict(args)
 
     if not parsed.questions:

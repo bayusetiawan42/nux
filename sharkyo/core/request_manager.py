@@ -99,7 +99,6 @@ class RequestManager:
                     "tools": _tools_schema(),
                     "tool_choice": "auto",
                     "parallel_tool_calls": True,
-                    "citation_options": {"enabled": True},
                 }
 
                 if self.config.reasoning_effort is not None:

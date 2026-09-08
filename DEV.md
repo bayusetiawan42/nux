@@ -33,7 +33,7 @@ Always import from the canonical module location. Do NOT import from top-level s
 | Constants | `from sharkyo.core.constants import DB_FILE, SHARKYO_DIR, SKILLS_DIR, SYSTEM_PROMPT, setup_dirs` |
 | Context | `from sharkyo.core.context import get_environment_context` |
 | Errors | `from sharkyo.core.errors import SharkyoError, NoAPIKeyError, ...` |
-| LLM | `from sharkyo.core.llm import ChatCompletion, OpenAI, errors` |
+| LLM | `from sharkyo.core.llm import ChatCompletion, Groq, errors` |
 | RequestManager | `from sharkyo.core.request_manager import RequestManager` |
 | API Keys | `from sharkyo.storage.apikeys import ApiKey, active_key, add_key, ...` |
 | DB | `from sharkyo.storage.db import get_connection` |
@@ -58,6 +58,21 @@ Always import from the canonical module location. Do NOT import from top-level s
 - Run tests: `python -m pytest tests/`
 - Run with verbose: `python -m pytest tests/ -v`
 - Run specific test: `python -m pytest tests/test_config.py`
+
+#### Runtime Tests
+
+Always do a fresh start before runtime testing:
+
+```bash
+sharkyo --clear --clear-knowledge && sharkyo server stop
+```
+
+Then install and run:
+
+```bash
+pip install .
+sharkyo "your test prompt"
+```
 
 ### Package Management
 
@@ -104,8 +119,15 @@ ruff check .
 # Format
 ruff format .
 
-# Test
+# Test (unit)
 python -m pytest tests/
+
+# Fresh start (before runtime tests)
+sharkyo --clear --clear-knowledge && sharkyo server stop
+
+# Runtime test
+pip install .
+sharkyo "your test prompt"
 
 # Run sharkyo
 sharkyo

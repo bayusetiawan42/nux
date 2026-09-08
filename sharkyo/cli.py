@@ -5,7 +5,7 @@ import sys
 import time
 from dataclasses import dataclass
 
-from sharkyo.storage.apikeys import add_key, list_keys
+from sharkyo.storage.apikeys import active_key, add_key, list_keys
 from sharkyo.storage.history import HistoryManager
 from sharkyo.tools.knowledge import clear_all, delete_key, list_all_formatted
 from sharkyo.ui.display import console, print_error, print_info, print_success
@@ -22,6 +22,7 @@ class CliArgs:
     add_key: str | None = None
     base_url: str | None = None
     keys: bool = False
+    models: str | None = None  # None = flag only, str = key index
     clear: bool = False
     knowledge: bool = False
     delete_knowledge: str | None = None
@@ -41,6 +42,7 @@ _OPTIONS = [
     ("--add-key <key>", "add a Groq API key"),
     ("--base-url <url>", "set custom base URL for --add-key"),
     ("--keys", "list stored API keys and rate-limit status"),
+    ("--models [KEY_INDEX]", "list available models for current or specific key"),
     ("--clear", "clear chat history"),
     ("--knowledge", "show stored persistent facts"),
     ("--delete-knowledge <key>", "delete a single knowledge entry"),
@@ -119,6 +121,15 @@ def parse(argv: list[str] | None = None) -> CliArgs:
             args.delete_knowledge = argv[i]
         elif arg == "--keys":
             args.keys = True
+        elif arg == "--models" or arg.startswith("--models="):
+            # --models alone, or --models=INDEX
+            if "=" in arg:
+                args.models = arg.split("=", 1)[1] or ""
+            elif i + 1 < n and not argv[i + 1].startswith("-"):
+                i += 1
+                args.models = argv[i]
+            else:
+                args.models = ""
         elif arg == "--clear":
             args.clear = True
         elif arg == "--knowledge":
@@ -173,6 +184,46 @@ def _print_knowledge() -> None:
     for line in formatted.splitlines():
         key, _, value = line.partition("=")
         console.print(f"  [cyan]{key.strip()}[/cyan] = {value.strip()}")
+
+
+def _print_models(key_index: str | None) -> None:
+    keys = list_keys()
+    if not keys:
+        print_info("No API keys stored. Add one with: sharkyo --add-key KEY")
+        return
+
+    from sharkyo.core.llm import Groq
+
+    if key_index:
+        idx = int(key_index)
+        match = [k for k in keys if k.id == idx]
+        if not match:
+            print_error(f"Key index {idx} not found. Use --keys to see available indices.")
+            return
+        target_key = match[0]
+    else:
+        target_key = active_key() or keys[0]
+
+    try:
+        client = Groq()(api_key=target_key.key, base_url=target_key.base_url)
+        response = client.models.list()
+    except Exception as e:  # noqa: BLE001
+        print_error(f"Failed to fetch models: {e}")
+        return
+
+    models = response.data
+    if not models:
+        print_info("No models available for this API key.")
+        return
+
+    label = f"key [{target_key.id}]" if key_index else "active key"
+    console.print(f"[bold cyan]Available models ({label}):[/bold cyan]")
+    for m in models:
+        ctx = getattr(m, "context_window", None)
+        ctx_str = f" ctx={ctx:,}" if ctx else ""
+        owner = getattr(m, "owned_by", "")
+        owner_str = f"  ({owner})" if owner else ""
+        console.print(f"  [green]{m.id}[/green]{ctx_str}{owner_str}")
 
 
 def _handle_server(argv: list[str] | None) -> int | None:
@@ -280,6 +331,10 @@ def main() -> str:
 
     if args.keys:
         _print_keys()
+        ran_action = True
+
+    if args.models is not None:
+        _print_models(args.models or None)
         ran_action = True
 
     if args.clear:

@@ -3,10 +3,12 @@
 
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 
 RC_FILE: str = os.path.expanduser("~/.sharkyorc")
 _SET_RE = re.compile(r"^set\s+(\S+)\s+(.+)$", re.IGNORECASE)
+
+_DEFAULTS = None  # populated after Config is defined
 
 
 @dataclass
@@ -20,6 +22,9 @@ class Config:
     reasoning_effort: str | None = None
     service_tier: str | None = None
     user: str | None = None
+
+
+_DEFAULTS = {f.name: f.default for f in fields(Config)}
 
 
 def load_config() -> Config:
@@ -58,3 +63,37 @@ def load_config() -> Config:
 
 def get_config(config: Config | None = None) -> Config:
     return config if config is not None else load_config()
+
+
+def _fetch_context_window(model: str, key: str, base_url: str | None = None) -> int | None:
+    # Query Groq API for a model's context_window. Returns None on failure.
+    try:
+        import importlib
+        groq = importlib.import_module("groq")
+        client = groq.Groq(api_key=key, base_url=base_url)
+        resp = client.models.retrieve(model)
+        return getattr(resp, "context_window", None)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def auto_adjust_config(cfg: Config, key: str, base_url: str | None = None) -> Config:
+    # Adjust max_history and max_command_output_tokens from context_window
+    # when the user hasn't explicitly overridden the defaults.
+    ctx = _fetch_context_window(cfg.model, key, base_url)
+    if ctx is None:
+        return cfg
+
+    # Only auto-adjust fields still at their defaults
+    if cfg.max_history == _DEFAULTS["max_history"]:
+        # Reserve ~20% for system prompt + completion headroom.
+        # each history message ~300 tokens
+        usable = int(ctx * 0.8)
+        cfg.max_history = max(6, min(usable // 300, 50))
+
+    if cfg.max_command_output_tokens == _DEFAULTS["max_command_output_tokens"]:
+        # Command output can take up to ~1/6 of usable context
+        usable = int(ctx * 0.8)
+        cfg.max_command_output_tokens = max(600, min(usable // 6, 8000))
+
+    return cfg

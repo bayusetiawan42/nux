@@ -42,9 +42,16 @@ class Session:
     @classmethod
     def create(cls, prompt: str, cwd: str | None = None) -> Session:
         from sharkyo import __version__
-        from sharkyo.core.config import load_config
+        from sharkyo.core.config import auto_adjust_config, load_config
+        from sharkyo.storage.apikeys import active_key
 
         config = load_config()
+
+        # Auto-adjust token limits from model's context_window
+        key = active_key()
+        if key:
+            config = auto_adjust_config(config, key.key, key.base_url)
+
         packet = Packet(
             type="CLIENT",
             version=__version__,
@@ -129,6 +136,7 @@ def _default_turn_runner(
     except Exception:  # noqa: BLE001 - report anything unexpected to the caller.
         try:
             import traceback
+
             from sharkyo.ui.display import print_error
             print_error(f"[dim]{traceback.format_exc()}[/dim]")
         except Exception:  # noqa: BLE001, S110 - last-resort error reporting

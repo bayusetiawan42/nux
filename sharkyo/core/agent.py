@@ -17,6 +17,7 @@ from sharkyo.ui.display import print_error, print_reply, yaspin_if_tty
 
 if TYPE_CHECKING:
     from groq.types.chat import ChatCompletionMessageToolCall
+
     from sharkyo.server.daemon import Session
 
 MAX_TOOL_ITERATIONS = 10

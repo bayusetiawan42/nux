@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING
 
 import questionary
 from rich.markdown import Markdown
-from rich.padding import Padding
 
 from sharkyo.core.utils.helper import token_len
 from sharkyo.tools import register_tool

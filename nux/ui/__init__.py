@@ -9,6 +9,9 @@ from nux.ui.display import (
     print_info,
     print_reply,
     print_success,
+    show_diff,
+    show_file_preview,
+    unified_diff,
     yaspin_if_tty,
 )
 
@@ -20,5 +23,8 @@ __all__ = [
     "print_info",
     "print_reply",
     "print_success",
+    "show_diff",
+    "show_file_preview",
+    "unified_diff",
     "yaspin_if_tty",
 ]

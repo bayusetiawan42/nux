@@ -204,9 +204,9 @@ def _run(
 
                 chunks.append(data)
 
-                if pass_output_to_user and printed_chars < config.max_command_output_display:
+                if pass_output_to_user and printed_chars < config.max_textlen_chars:
                     text = decoder.decode(data, final=False)
-                    rem_chars = max(0, config.max_command_output_display - printed_chars)
+                    rem_chars = max(0, config.max_textlen_chars - printed_chars)
                     sys.stdout.buffer.write(text[:rem_chars].encode("utf-8", errors="replace"))
                     sys.stdout.flush()
                     printed_chars += len(text)
@@ -232,10 +232,10 @@ def _run(
                         chunks.append(data)
                         if (
                             pass_output_to_user
-                            and printed_chars < config.max_command_output_display
+                            and printed_chars < config.max_textlen_chars
                         ):
                             text = decoder.decode(data, final=False)
-                            rem_chars = max(0, config.max_command_output_display - printed_chars)
+                            rem_chars = max(0, config.max_textlen_chars - printed_chars)
                             sys.stdout.buffer.write(
                                 text[:rem_chars].encode("utf-8", errors="replace")
                             )
@@ -304,9 +304,9 @@ def execute(args: dict, session: Session) -> ToolResult:
     if sys.stdout.isatty() and returncode != 0:
         print_error(f"\nCommand exited with code {returncode}.")
 
-    if token_len(transcript) > session.config.max_command_output_tokens:
+    if token_len(transcript) > session.config.max_textlen_tokens:
         transcript = (
-            transcript[: session.config.max_command_output_tokens] + "[ ... Output truncated ... ]"
+            transcript[: session.config.max_textlen_tokens] + "[ ... Output truncated ... ]"
         )
 
     output = f"{transcript}\n[ exit code: {returncode} ]"

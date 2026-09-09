@@ -20,7 +20,13 @@ TOOLS_SCHEMA: list[dict] = []
 
 def register_tool(name: str):
     def decorator(function):
-        schema = sys.modules[function.__module__].SCHEMA
+        module = sys.modules[function.__module__]
+
+        schemas = getattr(module, "SCHEMAS", None)
+        if schemas is not None:
+            schema = schemas.get(name)
+        else:
+            schema = getattr(module, "SCHEMA", None)
 
         if schema is not None:
             TOOLS_SCHEMA.append(schema)
@@ -43,4 +49,10 @@ def dispatch_tool(name: str, args: dict, session: Session) -> ToolResult:
 
 
 # Import tool modules to trigger @register_tool decorators
-from nux.tools import cmd, knowledge, questionary, skill  # noqa: F401
+from nux.tools import (  # noqa: F401
+    cmd,
+    file,
+    knowledge,
+    questionary,
+    skill,
+)

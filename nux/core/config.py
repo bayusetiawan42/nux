@@ -15,8 +15,8 @@ _DEFAULTS = None  # populated after Config is defined
 class Config:
     model: str = "openai/gpt-oss-20b"
     max_history: int = 12
-    max_command_output_display: int = 2000  # chars
-    max_command_output_tokens: int = 1200  # tokens
+    max_textlen_chars: int = 2000  # chars
+    max_textlen_tokens: int = 1200  # tokens
     max_completion_tokens: int = 512
     temperature: float = 0.7
     reasoning_effort: str | None = None
@@ -79,7 +79,7 @@ def _fetch_context_window(model: str, key: str, base_url: str | None = None) -> 
 
 
 def auto_adjust_config(cfg: Config, key: str, base_url: str | None = None) -> Config:
-    # Adjust max_history and max_command_output_tokens from context_window
+    # Adjust max_history and max_textlen_tokens from context_window
     # when the user hasn't explicitly overridden the defaults.
     ctx = _fetch_context_window(cfg.model, key, base_url)
     if ctx is None:
@@ -93,8 +93,8 @@ def auto_adjust_config(cfg: Config, key: str, base_url: str | None = None) -> Co
         # each history message ~300 tokens; keep history compact
         cfg.max_history = max(3, min(usable // 400, 25))
 
-    if cfg.max_command_output_tokens == _DEFAULTS["max_command_output_tokens"]:
+    if cfg.max_textlen_tokens == _DEFAULTS["max_textlen_tokens"]:
         # Command output takes up to ~1/10 of usable context
-        cfg.max_command_output_tokens = max(400, min(usable // 10, 4000))
+        cfg.max_textlen_tokens = max(400, min(usable // 10, 4000))
 
     return cfg

@@ -41,7 +41,7 @@ class Agent:
 
         system_prompt = (
         F"<system_prompt>\n{SYSTEM_PROMPT}\n</system_prompt>\n\n"
-        F"<krowledge>\n{knowledges or None}\n</knowledge>\n\n"
+        F"<knowledge>\n{knowledges or None}\n</knowledge>\n\n"
         F"<environment_context>\n{env_ctx}\n</environment_context>"
         )
 

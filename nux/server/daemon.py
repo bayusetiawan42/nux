@@ -13,12 +13,13 @@ import sys
 import time
 import traceback
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING
 
 from nux.server.defaults import PID_FILE, SOCKET_PATH
 from nux.server.protocol import Packet, recv_message, send_message
+from nux.ui.spinner import SpinnerHandle
 
 if TYPE_CHECKING:
     from nux.core.config import Config
@@ -45,6 +46,7 @@ def _run_cmd(cmd: str, args: list[str] | None = None) -> str:
 class Session:
     config: Config
     packet: Packet
+    spinner: SpinnerHandle = field(default_factory=SpinnerHandle, compare=False)
     verbose: bool = False
     quiet: bool = False
     dry_run: bool = False

@@ -88,7 +88,7 @@ class CmdArgs:
     @classmethod
     def from_dict(cls, args: dict) -> CmdArgs:
         return cls(
-            command=args.get("command", ""),
+            command=args.get("command") or "",
             stop_after_execution=args.get("stop_after_execution", False),
             pass_output_to_user=args.get("pass_output_to_user", True),
         )

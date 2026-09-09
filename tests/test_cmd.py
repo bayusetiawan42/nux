@@ -45,6 +45,10 @@ class TestArgs:
         assert args.command == "ls"
         assert args.stop_after_execution is True
 
+    def test_null_command_does_not_crash(self):
+        args = CmdArgs.from_dict({"command": None})
+        assert args.command == ""
+
     def test_from_dict_defaults(self):
         args = CmdArgs.from_dict({"command": "ls"})
         assert args.command == "ls"

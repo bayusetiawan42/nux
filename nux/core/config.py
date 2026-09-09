@@ -17,7 +17,10 @@ class Config:
     max_history: int = 12
     max_textlen_chars: int = 2000  # chars
     max_textlen_tokens: int = 1200  # tokens
-    max_completion_tokens: int = 512
+    # Headroom for reasoning tokens + tool-call JSON (e.g. QUESTIONARY);
+    # with 512 the model ran out of tokens mid-argument and Groq returned
+    # tool_use_failed/output_parse_failed errors.
+    max_completion_tokens: int = 4096
     temperature: float = 0.7
     reasoning_effort: str | None = None
     service_tier: str | None = None

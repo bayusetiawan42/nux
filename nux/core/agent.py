@@ -14,7 +14,7 @@ from nux.storage.history import HistoryManager
 from nux.storage.knowledge import KnowledgeManager
 from nux.tools import dispatch_tool
 from nux.tools.result import ToolResult, serialize_tool_call
-from nux.ui.display import print_error, print_info, print_reply, yaspin_if_tty
+from nux.ui.display import print_error, print_info, print_reply
 
 if TYPE_CHECKING:
     from groq.types.chat import ChatCompletionMessageToolCall
@@ -129,8 +129,12 @@ class Agent:
                 print_info(f"Reached max turns limit ({self.session.max_turns})")
                 return
 
-            with yaspin_if_tty():
-                response = self.request_mgr.chat(messages, self.session.allowed_tools)
+            self.session.spinner.push("thinking")
+            self.session.spinner.start()
+            try:
+                response = self.request_mgr.chat(messages, self.session.allowed_tools, self.session.spinner)
+            finally:
+                self.session.spinner.stop()
 
             choice = response.choices[0]
             msg = choice.message
@@ -141,6 +145,8 @@ class Agent:
                 print_reply(text_reply)
 
             if not tool_calls:
+                if not text_reply and not self.session.quiet:
+                    print_info("No response from model. Try providing more context in your prompt.")
                 self.history_mgr.append_assistant(text_reply or None)
                 self.last_reply = text_reply
                 return

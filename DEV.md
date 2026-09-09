@@ -78,7 +78,7 @@ Always import from the canonical module location. Do NOT import from top-level s
 Always do a fresh start before runtime testing:
 
 ```bash
-nux --clear --clear-knowledge && nux server stop
+nux --clear --clear-knowledge server stop
 ```
 
 Then install and run:

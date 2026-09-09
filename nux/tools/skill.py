@@ -45,7 +45,7 @@ class SkillArgs:
 
     @classmethod
     def from_dict(cls, args: dict) -> SkillArgs:
-        return cls(query=args.get("query", "").strip())
+        return cls(query=(args.get("query") or "").strip())
 
 
 @register_tool("SKILL")

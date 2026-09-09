@@ -153,8 +153,8 @@ class FileReadArgs:
     def from_dict(cls, args: dict) -> FileReadArgs:
         return cls(
             path=args.get("path", ""),
-            offset=max(1, args.get("offset", 1)),
-            limit=max(1, args.get("limit")),
+            offset=max(1, args.get("offset") or 1),
+            limit=max(1, args.get("limit") or 2000),
         )
 
 
@@ -166,8 +166,8 @@ class FileWriteArgs:
     @classmethod
     def from_dict(cls, args: dict) -> FileWriteArgs:
         return cls(
-            path=args.get("path", ""),
-            content=args.get("content", ""),
+            path=args.get("path") or "",
+            content=args.get("content") or "",
         )
 
 
@@ -180,9 +180,9 @@ class FileEditArgs:
     @classmethod
     def from_dict(cls, args: dict) -> FileEditArgs:
         return cls(
-            path=args.get("path", ""),
-            old_string=args.get("old_string", ""),
-            new_string=args.get("new_string", ""),
+            path=args.get("path") or "",
+            old_string=args.get("old_string") or "",
+            new_string=args.get("new_string") or "",
         )
 
 
@@ -228,7 +228,7 @@ def execute_read(args: dict, session: Session) -> ToolResult:
         header += f" [showing lines {start + 1}-{end}]"
 
     output = header + "\n" + "\n".join(numbered)
-    print_info(f"Read {os.path.basename(resolved)} [limit:]")
+    print_info(f"Read {resolved} [limit:]")
     return ToolResult(output=output, should_continue=True)
 
 

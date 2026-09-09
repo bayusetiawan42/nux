@@ -1,15 +1,13 @@
 # ui/display.py
-# Rich-based display utilities and spinner for Nux.
+# Rich-based display utilities for Nux.
 
 import difflib
 import os
 import sys
-from contextlib import nullcontext
 
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.padding import Padding
-from yaspin import yaspin
 
 console = Console(force_terminal=True)
 
@@ -21,18 +19,10 @@ QUESTIONARY_STYLE_SPEC = [
     ("selected", "fg:#00bcd4"),
 ]
 
-_SHINY = "dots"
-
 
 def set_no_color() -> None:
     global console
     console = Console(force_terminal=True, no_color=True)
-
-
-def yaspin_if_tty(spinner: str = _SHINY):
-    if sys.stdout.isatty():
-        return yaspin(spinner, text="nux")
-    return nullcontext()
 
 
 def is_interactive() -> bool:

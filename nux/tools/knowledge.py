@@ -58,9 +58,9 @@ class KnowledgeArgs:
     @classmethod
     def from_dict(cls, args: dict) -> KnowledgeArgs:
         return cls(
-            op=args.get("op", ""),
-            key=args.get("key", "").strip(),
-            value=args.get("value", "").strip(),
+            op=args.get("op") or "",
+            key=(args.get("key") or "").strip(),
+            value=(args.get("value") or "").strip(),
         )
 
 

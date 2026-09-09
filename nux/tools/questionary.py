@@ -50,13 +50,18 @@ SCHEMA = {
                                     "Question type: "
                                     "'text' = free-form input, "
                                     "'confirm' = yes/no, "
-                                    "'select' = pick one from choices, "
-                                    "'checkbox' = pick multiple from choices."
+                                    "'select' = pick one from choices (MUST provide 'choices'), "
+                                    "'checkbox' = pick multiple from choices (MUST provide 'choices')."
                                 ),
                             },
                             "message": {
                                 "type": "string",
                                 "description": "The question text shown to the user.",
+                            },
+                            "choices": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of choices for 'select' and 'checkbox' types. REQUIRED for these types.",
                             },
                         },
                         "required": ["key", "type", "message"],
@@ -85,9 +90,9 @@ class QuestionSpec:
     @classmethod
     def from_dict(cls, spec: dict) -> QuestionSpec:
         return cls(
-            key=spec.get("key", "answer"),
-            type=spec.get("type", "text"),
-            message=spec.get("message", ""),
+            key=spec.get("key") or "answer",
+            type=spec.get("type") or "text",
+            message=spec.get("message") or "",
             choices=spec.get("choices") or [],
             default=spec.get("default"),
         )
@@ -101,8 +106,8 @@ class QuestionaryArgs:
     @classmethod
     def from_dict(cls, args: dict) -> QuestionaryArgs:
         return cls(
-            intro=args.get("intro", "").strip(),
-            questions=[QuestionSpec.from_dict(s) for s in args.get("questions", [])],
+            intro=(args.get("intro") or "").strip(),
+            questions=[QuestionSpec.from_dict(s) for s in (args.get("questions") or [])],
         )
 
 
@@ -119,7 +124,10 @@ def _ask_one(spec: QuestionSpec) -> object | None:
 
     if spec.type == "select":
         if not spec.choices:
-            return None
+            return q.text(
+                f"{spec.message} (no choices provided, type your answer)",
+                style=_STYLE,
+            ).ask()
         kwargs = {"style": _STYLE}
         if spec.default and spec.default in spec.choices:
             kwargs["default"] = spec.default
@@ -127,7 +135,10 @@ def _ask_one(spec: QuestionSpec) -> object | None:
 
     if spec.type == "checkbox":
         if not spec.choices:
-            return []
+            return q.text(
+                f"{spec.message} (no choices provided, type your answer)",
+                style=_STYLE,
+            ).ask()
         return q.checkbox(spec.message, choices=spec.choices, style=_STYLE).ask()
 
     return q.text(spec.message, style=_STYLE).ask()

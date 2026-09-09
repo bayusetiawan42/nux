@@ -81,7 +81,8 @@ class RequestManager:
 
         tools = _tools_schema()
         if allowed_tools:
-            tools = [t for t in tools if t.get("function", {}).get("name") in allowed_tools]
+            normalized = {t.upper() for t in allowed_tools}
+            tools = [t for t in tools if t.get("function", {}).get("name", "").upper() in normalized]
 
         for _ in range(attempts):
             key = active_key()

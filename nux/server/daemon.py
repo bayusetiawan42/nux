@@ -186,7 +186,21 @@ def _default_turn_runner(
 
         try:
             session = Session.create(prompt=prompt, packet=packet, flags=flags)
-            Agent(session).run(prompt)
+            agent = Agent(session)
+            agent.run(prompt)
+
+            if packet.message.get("json_output"):
+                import json as _json
+
+                output = {
+                    "reply": agent.last_reply,
+                    "model": session.config.model,
+                    "dry_run": session.dry_run,
+                }
+                from nux.ui.display import console
+
+                console.print(_json.dumps(output, ensure_ascii=False))
+
         except NuxError as e:
             log_error(e, context=f"prompt={prompt!r}")
             from nux.ui.display import print_error

@@ -718,10 +718,11 @@ def _handle_doctor() -> int | None:
         table.add_row("Groq SDK", "[red]MISSING[/red]", "pip install groq")
 
     try:
-        import rich
+        from importlib.metadata import version as _get_version
 
-        table.add_row("Rich", "[green]OK[/green]", rich.__version__)
-    except ImportError:
+        rich_ver = _get_version("rich")
+        table.add_row("Rich", "[green]OK[/green]", rich_ver)
+    except Exception:  # noqa: BLE001
         table.add_row("Rich", "[red]MISSING[/red]", "pip install rich")
 
     console.print(table)
@@ -841,6 +842,29 @@ def main() -> str:
             print_success(msg)
         else:
             print_error(msg)
+        ran_action = True
+
+    if args.sessions:
+        _handle_sessions()
+        ran_action = True
+
+    if args.resume and not args.prompt:
+        from nux.storage.db import execute_read
+
+        rows = execute_read(
+            "SELECT role, content FROM history ORDER BY id DESC LIMIT 6",
+        )
+        if not rows:
+            print_info("No history to resume.")
+        else:
+            print_info("Resuming from last conversation:")
+            for row in reversed(rows):
+                role = row["role"]
+                content = row["content"] or ""
+                if role == "user":
+                    print_info(f"  you: {content[:100]}")
+                elif role == "assistant":
+                    print_info(f"  nux: {content[:100]}")
         ran_action = True
 
     prompt = " ".join(args.prompt).strip()

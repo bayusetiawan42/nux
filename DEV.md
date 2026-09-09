@@ -101,6 +101,21 @@ sharkyo "your test prompt"
 - Define new errors in `sharkyo/core/errors.py`
 - Use specific error classes, not generic exceptions
 
+### Error Logging
+
+All errors are logged to `~/.sharkyo/error/`:
+- `error.log` - Tracebacks, error messages, context
+- `history.json` - Conversation history at time of error (RAM, not SQLite)
+
+Use `sharkyo.core.error_logger.log_error()` to log errors:
+```python
+from sharkyo.core.error_logger import log_error
+try:
+    ...
+except Exception as e:
+    log_error(e, context="what was happening", messages=conversation_messages)
+```
+
 ### Storage Layer
 
 - SQLite-based storage

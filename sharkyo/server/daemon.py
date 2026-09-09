@@ -12,9 +12,13 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sharkyo.server.defaults import PID_FILE, SOCKET_PATH
 from sharkyo.server.protocol import Packet, recv_message, send_message
+
+if TYPE_CHECKING:
+    from sharkyo.core.config import Config
 
 VERSION_MISMATCH_EXIT = -2
 
@@ -36,12 +40,11 @@ def _run_git(args: list[str]) -> str:
 
 @dataclass
 class Session:
-    config: object  # Config
+    config: Config
     packet: Packet
 
     @classmethod
-    def create(cls, prompt: str, cwd: str | None = None) -> Session:
-        from sharkyo import __version__
+    def create(cls, prompt: str, cwd: str | None = None, packet: Packet | None = None) -> Session:
         from sharkyo.core.config import auto_adjust_config, load_config
         from sharkyo.storage.apikeys import active_key
 
@@ -52,13 +55,15 @@ class Session:
         if key:
             config = auto_adjust_config(config, key.key, key.base_url)
 
-        packet = Packet(
-            type="CLIENT",
-            version=__version__,
-            cwd=cwd or os.getcwd(),
-            env=dict(os.environ),
-            message={"prompt": prompt},
-        )
+        if packet is None:
+            from sharkyo import __version__
+            packet = Packet(
+                type="CLIENT",
+                version=__version__,
+                cwd=cwd or os.getcwd(),
+                env={},
+                message={"prompt": prompt},
+            )
         return cls(config=config, packet=packet)
 
     def get_environment_context(self) -> str:
@@ -121,11 +126,10 @@ def _default_turn_runner(
     code = 0
     try:
         from sharkyo.core.agent import Agent
-        from sharkyo.core.config import load_config
         from sharkyo.core.errors import SharkyoError
 
         try:
-            session = Session(config=load_config(), packet=packet)
+            session = Session.create(prompt=prompt, packet=packet)
             Agent(session).run(prompt)
         except SharkyoError as e:
             from sharkyo.ui.display import print_error

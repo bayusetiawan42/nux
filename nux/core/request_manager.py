@@ -75,9 +75,13 @@ class RequestManager:
                 "All configured API keys are currently rate limited. Try again later."
             )
 
-    def chat(self, messages: list[dict]) -> ChatCompletion:
+    def chat(self, messages: list[dict], allowed_tools: list[str] | None = None) -> ChatCompletion:
         all_keys = list_keys()
         attempts = max(len(all_keys), 1)
+
+        tools = _tools_schema()
+        if allowed_tools:
+            tools = [t for t in tools if t.get("function", {}).get("name") in allowed_tools]
 
         for _ in range(attempts):
             key = active_key()
@@ -96,7 +100,7 @@ class RequestManager:
                     "messages": messages,
                     "temperature": self.config.temperature,
                     "max_completion_tokens": self.config.max_completion_tokens,
-                    "tools": _tools_schema(),
+                    "tools": tools,
                     "tool_choice": "auto",
                     "parallel_tool_calls": True,
                 }

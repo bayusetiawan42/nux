@@ -270,7 +270,9 @@ def execute(args: dict, session: Session) -> ToolResult:
     console.print(Markdown(f"```bash\n$ {parsed.command}\n```"))
 
     cancelled = False
-    if is_interactive():
+    if session.no_confirm:
+        pass
+    elif is_interactive():
         confirm = questionary.select(
             "Run it?",
             choices=["Yes", "No"],

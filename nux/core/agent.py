@@ -112,10 +112,15 @@ class Agent:
 
     def _run_tool_loop(self, messages: list[dict]) -> None:
         text_reply = ""
+        turn = 0
 
         while True:
+            if self.session.max_turns and turn >= self.session.max_turns:
+                print_info(f"Reached max turns limit ({self.session.max_turns})")
+                return
+
             with yaspin_if_tty():
-                response = self.request_mgr.chat(messages)
+                response = self.request_mgr.chat(messages, self.session.allowed_tools)
 
             choice = response.choices[0]
             msg = choice.message
@@ -152,6 +157,7 @@ class Agent:
             # loop is about to stop -- "stopped" only ends the looping, it
             # doesn't mean the output is thrown away.
             self._record_tool_results(messages, executed, text_reply or "")
+            turn += 1
 
             if stopped:
                 return

@@ -284,3 +284,51 @@ def test_medium_flags_combined():
 def test_sessions_subcommand():
     args = parse(["sessions"])
     assert args.prompt == ["sessions"]
+
+
+def test_max_turns_flag():
+    args = parse(["--max-turns", "5", "hello"])
+    assert args.max_turns == 5
+    assert args.prompt == ["hello"]
+
+
+def test_max_turns_invalid_exits():
+    with pytest.raises(SystemExit):
+        parse(["--max-turns", "abc"])
+
+
+def test_max_turns_missing_value_exits():
+    with pytest.raises(SystemExit):
+        parse(["--max-turns"])
+
+
+def test_no_confirm_flag():
+    args = parse(["--no-confirm", "hello"])
+    assert args.no_confirm is True
+    assert args.prompt == ["hello"]
+
+
+def test_tool_flag():
+    args = parse(["--tool", "cmd,knowledge", "hello"])
+    assert args.tools == "cmd,knowledge"
+    assert args.prompt == ["hello"]
+
+
+def test_tool_missing_value_exits():
+    with pytest.raises(SystemExit):
+        parse(["--tool"])
+
+
+def test_breaking_flags_defaults():
+    args = parse([])
+    assert args.max_turns is None
+    assert args.no_confirm is False
+    assert args.tools is None
+
+
+def test_breaking_flags_combined():
+    args = parse(["--max-turns", "3", "--no-confirm", "--tool", "cmd", "hello"])
+    assert args.max_turns == 3
+    assert args.no_confirm is True
+    assert args.tools == "cmd"
+    assert args.prompt == ["hello"]

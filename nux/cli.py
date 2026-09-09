@@ -34,6 +34,9 @@ class CliArgs:
     sessions: bool = False
     json_output: bool = False
     timeout: int | None = None
+    max_turns: int | None = None
+    no_confirm: bool = False
+    tools: str | None = None
 
 
 _DESCRIPTION = "Nux. Your terminal on steroids!"
@@ -68,6 +71,9 @@ _OPTIONS = [
     ("--sessions", "list past sessions"),
     ("--json", "output in JSON format"),
     ("--timeout <seconds>", "set execution timeout"),
+    ("--max-turns <n>", "limit agentic loop iterations"),
+    ("--no-confirm", "skip confirmation prompts for tool execution"),
+    ("--tool <t1,t2>", "restrict agent to specific tools (comma-separated)"),
     ("-h, --help", "show this help message and exit"),
 ]
 
@@ -152,6 +158,24 @@ def parse(argv: list[str] | None = None) -> CliArgs:
             except ValueError:
                 print_error("--timeout must be an integer (seconds)")
                 sys.exit(1)
+        elif arg == "--max-turns":
+            i += 1
+            if i >= n:
+                print_error("--max-turns requires a value")
+                sys.exit(1)
+            try:
+                args.max_turns = int(argv[i])
+            except ValueError:
+                print_error("--max-turns must be an integer")
+                sys.exit(1)
+        elif arg == "--no-confirm":
+            args.no_confirm = True
+        elif arg == "--tool":
+            i += 1
+            if i >= n:
+                print_error("--tool requires a value")
+                sys.exit(1)
+            args.tools = argv[i]
         elif arg == "--add-key":
             i += 1
             if i >= n:
@@ -872,4 +896,7 @@ def get_flags() -> dict:
         "resume": args.resume,
         "json_output": args.json_output,
         "timeout": args.timeout,
+        "max_turns": args.max_turns,
+        "no_confirm": args.no_confirm,
+        "tools": args.tools,
     }

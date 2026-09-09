@@ -49,6 +49,9 @@ class Session:
     quiet: bool = False
     dry_run: bool = False
     timeout: int | None = None
+    max_turns: int | None = None
+    no_confirm: bool = False
+    allowed_tools: list[str] | None = None
 
     @classmethod
     def create(cls, prompt: str, cwd: str | None = None, packet: Packet | None = None, flags: dict | None = None) -> Session:
@@ -71,6 +74,10 @@ class Session:
                 cwd=cwd or os.getcwd(),
                 message={"prompt": prompt},
             )
+
+        tools_str = (flags or {}).get("tools")
+        allowed_tools = tools_str.split(",") if tools_str else None
+
         return cls(
             config=config,
             packet=packet,
@@ -78,6 +85,9 @@ class Session:
             quiet=flags.get("quiet", False) if flags else False,
             dry_run=flags.get("dry_run", False) if flags else False,
             timeout=flags.get("timeout") if flags else None,
+            max_turns=flags.get("max_turns") if flags else None,
+            no_confirm=flags.get("no_confirm", False) if flags else False,
+            allowed_tools=allowed_tools,
         )
 
     def get_environment_context(self) -> str:
@@ -169,6 +179,9 @@ def _default_turn_runner(
             "quiet": packet.message.get("quiet", False),
             "dry_run": packet.message.get("dry_run", False),
             "timeout": packet.message.get("timeout"),
+            "max_turns": packet.message.get("max_turns"),
+            "no_confirm": packet.message.get("no_confirm", False),
+            "tools": packet.message.get("tools"),
         }
 
         try:

@@ -5,7 +5,6 @@ import os
 import socket
 import threading
 import time
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -18,8 +17,6 @@ def cleanup_client(monkeypatch, tmp_path):
     """Isolate client paths for each test."""
     sock_path = str(tmp_path / "client_test.sock")
     monkeypatch.setattr(client, "SOCKET_PATH", sock_path)
-    import sharkyo.server.defaults as defaults_mod
-    monkeypatch.setattr(defaults_mod, "SOCKET_PATH", sock_path)
     yield
 
 
@@ -28,22 +25,17 @@ class TestConnect:
         result = client._connect(timeout=0.1)
         assert result is None
 
-    def test_connect_returns_socket_when_server_running(self, tmp_path):
+    def test_connect_returns_socket_when_server_running(self, monkeypatch, tmp_path):
         sock_path = str(tmp_path / "test.sock")
         server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server.bind(sock_path)
         server.listen(1)
 
         try:
-            import sharkyo.server.defaults as defaults_mod
-            original = defaults_mod.SOCKET_PATH
-            defaults_mod.SOCKET_PATH = sock_path
-            try:
-                conn = client._connect(timeout=1.0)
-                assert conn is not None
-                conn.close()
-            finally:
-                defaults_mod.SOCKET_PATH = original
+            monkeypatch.setattr(client, "SOCKET_PATH", sock_path)
+            conn = client._connect(timeout=1.0)
+            assert conn is not None
+            conn.close()
         finally:
             server.close()
             os.unlink(sock_path)
@@ -68,7 +60,7 @@ class TestSendAndWait:
         assert code is None
         assert retry is False
 
-    def test_sends_packet_correctly(self, tmp_path):
+    def test_sends_packet_correctly(self, monkeypatch, tmp_path):
         sock_path = str(tmp_path / "send_test.sock")
         received_packets = []
 
@@ -96,16 +88,13 @@ class TestSendAndWait:
         t = threading.Thread(target=server_handler, daemon=True)
         t.start()
 
-        import sharkyo.server.defaults as defaults_mod
-        original = defaults_mod.SOCKET_PATH
-        defaults_mod.SOCKET_PATH = sock_path
+        monkeypatch.setattr(client, "SOCKET_PATH", sock_path)
         try:
             time.sleep(0.1)  # Wait for server to start
             code, retry = client._send_and_wait("test prompt")
             assert code == 0
             assert retry is False
         finally:
-            defaults_mod.SOCKET_PATH = original
             t.join(timeout=2)
             try:
                 os.unlink(sock_path)

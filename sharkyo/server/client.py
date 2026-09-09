@@ -71,7 +71,6 @@ def _send_and_wait(prompt: str) -> tuple[int | None, bool]:
             type="CLIENT",
             version=__version__,
             cwd=os.getcwd(),
-            env={},
             message={"prompt": prompt},
         )
         send_message(conn, packet)

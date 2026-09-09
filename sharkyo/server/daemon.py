@@ -9,6 +9,7 @@ import socket
 import subprocess
 import sys
 import time
+import traceback
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -125,21 +126,22 @@ def _default_turn_runner(
     code = 0
     try:
         from sharkyo.core.agent import Agent
+        from sharkyo.core.error_logger import log_error
         from sharkyo.core.errors import SharkyoError
 
         try:
             session = Session.create(prompt=prompt, packet=packet)
             Agent(session).run(prompt)
         except SharkyoError as e:
+            log_error(e, context=f"prompt={prompt!r}")
             from sharkyo.ui.display import print_error
             print_error(str(e))
             code = 1
     except KeyboardInterrupt:
         code = 130
-    except Exception:  # noqa: BLE001 - report anything unexpected to the caller.
+    except Exception as e:  # noqa: BLE001 - report anything unexpected to the caller.
+        log_error(e, context=f"prompt={prompt!r}")
         try:
-            import traceback
-
             from sharkyo.ui.display import print_error
             print_error(f"[dim]{traceback.format_exc()}[/dim]")
         except Exception:  # noqa: BLE001, S110 - last-resort error reporting

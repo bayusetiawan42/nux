@@ -21,11 +21,19 @@ def main() -> None:
 
     try:
         from sharkyo.core.agent import Agent
+        from sharkyo.core.error_logger import log_error
         from sharkyo.server.daemon import Session
 
         session = Session.create(prompt)
         Agent(session).run(prompt)
     except SharkyoError as e:
+        log_error(e, context=f"prompt={prompt!r}")
+        from sharkyo.ui.display import print_error
+
+        print_error(str(e))
+        sys.exit(1)
+    except Exception as e:  # noqa: BLE001
+        log_error(e, context=f"prompt={prompt!r}")
         from sharkyo.ui.display import print_error
 
         print_error(str(e))

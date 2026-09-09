@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 import os
+import platform
 import re
 import signal
-import platform
 import socket
 import subprocess
 import sys
@@ -107,7 +107,7 @@ class Session:
             if os.path.exists("/etc/os-release"):
                 with open("/etc/os-release", "r") as f:
                     content = f.read()
-                pretty_name_match = re.search(r'^PRETTY_NAME=["\']?(.*?)["\']?$', content, re.M)
+                pretty_name_match = re.search(r'^PRETTY_NAME=["\']?(.*?)["\']?$', content, re.MULTILINE)
                 os_name_version = pretty_name_match.group(1) if pretty_name_match else "Linux"
             else:
                 os_name_version = "Linux (Unknown Distro)"

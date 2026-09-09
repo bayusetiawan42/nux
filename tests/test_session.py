@@ -1,10 +1,7 @@
 # tests/test_session.py
 # Session tests: create(), get_environment_context(), config handling.
 
-import os
-from unittest.mock import patch, MagicMock
 
-import pytest
 
 from nux.server.daemon import Session
 from nux.server.protocol import Packet

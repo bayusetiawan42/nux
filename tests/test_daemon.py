@@ -2,14 +2,11 @@
 # Daemon lifecycle tests: start, stop, running, PID file, socket management.
 
 import os
-import signal
 import socket
-import time
 
 import pytest
 
 from nux.server import daemon
-from nux.server.defaults import PID_FILE, SOCKET_PATH
 
 
 # Ensure daemon is stopped and paths are isolated for each test.
@@ -100,7 +97,6 @@ class TestPreload:
         daemon._preload()
 
     def test_remove_stale_socket_nonexistent(self, tmp_path):
-        sock_path = str(tmp_path / "nonexistent.sock")
         # Should not raise
         daemon._remove_stale_socket()
 

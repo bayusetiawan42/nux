@@ -2,9 +2,6 @@
 # Wire protocol tests: Packet serialization, send/recv, edge cases.
 
 import socket
-import threading
-
-import pytest
 
 from nux.server.protocol import Packet, recv_message, send_message
 
@@ -82,7 +79,7 @@ class TestSendRecv:
             packet = Packet(type="CLIENT", version="0.1.0", cwd="/tmp", message={"prompt": "test"})
             send_message(server, packet)
 
-            received, fds = recv_message(client)
+            received, _fds = recv_message(client)
             assert received.type == "CLIENT"
             assert received.message == {"prompt": "test"}
         finally:

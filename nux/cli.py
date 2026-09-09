@@ -259,8 +259,9 @@ def _print_models(key_index: str | None) -> None:
         print_info("No API keys stored. Add one with: nux --add-key KEY")
         return
 
-    from nux.core.llm import Groq
     from rich.table import Table
+
+    from nux.core.llm import Groq
 
     if key_index:
         idx = int(key_index)
@@ -284,8 +285,6 @@ def _print_models(key_index: str | None) -> None:
         print_info("No models available for this API key.")
         return
 
-    label = f"key [{target_key.id}]" if key_index else "active key"
-
     table = Table(title=None, box=None, padding=(0, 2, 0, 0))
 
     table.add_column("Model ID", style="dim", justify="left")
@@ -304,12 +303,14 @@ def _print_models(key_index: str | None) -> None:
 
 def _print_stats(key_index: str | None) -> None:
     import time as _time
-    from nux.core.config import load_config, _fetch_context_window
+
+    from rich.table import Table
+
+    from nux.core.config import _fetch_context_window, load_config
     from nux.core.llm import Groq
     from nux.core.utils.helper import token_len
     from nux.storage.apikeys import active_key, list_keys
     from nux.storage.history import HistoryManager
-    from rich.table import Table
 
     keys = list_keys()
     if not keys:
@@ -337,7 +338,7 @@ def _print_stats(key_index: str | None) -> None:
         client = Groq()(api_key=ak.key, base_url=ak.base_url)
         for m in client.models.list().data:
             owner_map[m.id] = getattr(m, "owned_by", "-")
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001, S110
         pass
 
     now = int(_time.time())
@@ -421,7 +422,7 @@ def _handle_server(argv: list[str] | None) -> int | None:
 
 
 def _handle_config(argv: list[str] | None) -> int | None:
-    from nux.core.config import RC_FILE, _DEFAULTS, Config, load_config
+    from nux.core.config import _DEFAULTS, RC_FILE, load_config
 
     sub = argv[0] if argv else "get"
 
@@ -575,8 +576,9 @@ def _handle_skills(argv: list[str] | None) -> int | None:
 def _handle_sessions() -> int | None:
     from datetime import datetime, timezone
 
-    from nux.storage.db import execute_read
     from rich.table import Table
+
+    from nux.storage.db import execute_read
 
     rows = execute_read(
         "SELECT role, content, created_at FROM history ORDER BY id"
@@ -664,23 +666,23 @@ def _handle_doctor() -> int | None:
 
     from nux import __version__
 
-    table.add_row("Version", f"[green]OK[/green]", __version__)
+    table.add_row("Version", "[green]OK[/green]", __version__)
 
     from nux.core.config import RC_FILE, load_config
 
     if os.path.exists(RC_FILE):
         try:
-            cfg = load_config()
-            table.add_row("Config", f"[green]OK[/green]", RC_FILE)
+            load_config()
+            table.add_row("Config", "[green]OK[/green]", RC_FILE)
         except Exception as e:  # noqa: BLE001
-            table.add_row("Config", f"[red]FAIL[/red]", str(e))
+            table.add_row("Config", "[red]FAIL[/red]", str(e))
     else:
         table.add_row("Config", "[yellow]MISSING[/yellow]", f"Not found: {RC_FILE}")
 
     from nux.core.constants import DB_FILE
 
     if os.path.exists(DB_FILE):
-        table.add_row("Database", f"[green]OK[/green]", DB_FILE)
+        table.add_row("Database", "[green]OK[/green]", DB_FILE)
     else:
         table.add_row("Database", "[yellow]MISSING[/yellow]", f"Not found: {DB_FILE}")
 
@@ -697,28 +699,28 @@ def _handle_doctor() -> int | None:
     from nux.server import running
 
     if running():
-        table.add_row("Server", f"[green]OK[/green]", "Daemon running")
+        table.add_row("Server", "[green]OK[/green]", "Daemon running")
     else:
         table.add_row("Server", "[yellow]STOPPED[/yellow]", "Not running (starts on demand)")
 
-    from nux.core.constants import SKILLS_DIR
-
     import glob as _glob
 
+    from nux.core.constants import SKILLS_DIR
+
     skill_count = len(_glob.glob(os.path.join(SKILLS_DIR, "*.md")))
-    table.add_row("Skills", f"[green]OK[/green]", f"{skill_count} skills loaded")
+    table.add_row("Skills", "[green]OK[/green]", f"{skill_count} skills loaded")
 
     try:
-        import groq  # noqa: F401
+        import groq
 
-        table.add_row("Groq SDK", f"[green]OK[/green]", groq.__version__)
+        table.add_row("Groq SDK", "[green]OK[/green]", groq.__version__)
     except ImportError:
         table.add_row("Groq SDK", "[red]MISSING[/red]", "pip install groq")
 
     try:
-        import rich  # noqa: F401
+        import rich
 
-        table.add_row("Rich", f"[green]OK[/green]", rich.__version__)
+        table.add_row("Rich", "[green]OK[/green]", rich.__version__)
     except ImportError:
         table.add_row("Rich", "[red]MISSING[/red]", "pip install rich")
 

@@ -4,7 +4,8 @@
 import json
 import sys
 
-from nux.cli import main as run_cli, get_flags
+from nux.cli import get_flags
+from nux.cli import main as run_cli
 from nux.core.constants import setup_dirs
 from nux.core.errors import NuxError
 

@@ -27,14 +27,6 @@ def log_error(
     ts = datetime.now(timezone.utc).isoformat()
     tb = traceback.format_exc()
 
-    entry = {
-        "timestamp": ts,
-        "error_type": type(error).__name__,
-        "error_message": str(error),
-        "context": context,
-        "traceback": tb,
-    }
-
     with open(ERROR_LOG, "a", encoding="utf-8") as f:
         f.write(f"\n{'=' * 60}\n")
         f.write(f"[{ts}] {context}\n" if context else f"[{ts}]\n")

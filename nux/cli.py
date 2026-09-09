@@ -1,13 +1,14 @@
 # cli.py
 # CLI argument parsing and handlers for Nux.
 
+import os
 import sys
 import time
 from dataclasses import dataclass
 
 from nux.ui.display import console, print_error, print_info, print_success
 
-AVAILABLE_COMMANDS = "clear, knowledge, clear-knowledge, delete-knowledge, server, reload"
+AVAILABLE_COMMANDS = "clear, knowledge, clear-knowledge, delete-knowledge, server, reload, config, skills, logs, doctor"
 
 _MSG_HISTORY_CLEARED = "History cleared."
 _MSG_NO_KNOWLEDGE = "No knowledge stored yet."
@@ -37,6 +38,10 @@ _COMMANDS = [
     ("nux server <start|stop|status|reload>", "manage the background daemon"),
     ("nux reload", "restart the background daemon"),
     ("nux command <name> [args]", "run a built-in command"),
+    ("nux config [get|set|reset|path]", "view or modify configuration"),
+    ("nux skills [search <query>]", "list or search available skills"),
+    ("nux logs [clear]", "view or clear error logs"),
+    ("nux doctor", "run diagnostics"),
 ]
 
 _OPTIONS = [
@@ -363,6 +368,262 @@ def _handle_server(argv: list[str] | None) -> int | None:
     return 1
 
 
+def _handle_config(argv: list[str] | None) -> int | None:
+    from nux.core.config import RC_FILE, _DEFAULTS, Config, load_config
+
+    sub = argv[0] if argv else "get"
+
+    if sub == "get":
+        if len(argv) > 1:
+            key = argv[1].lower()
+            cfg = load_config()
+            if not hasattr(cfg, key):
+                print_error(f"Unknown config key: {key}")
+                print_info(f"Available keys: {', '.join(_DEFAULTS.keys())}")
+                return 1
+            val = getattr(cfg, key)
+            print(f"{key} = {val}")
+            return 0
+
+        cfg = load_config()
+        from rich.table import Table
+
+        table = Table(box=None, padding=(0, 2, 0, 0))
+        table.add_column("Key", style="cyan")
+        table.add_column("Value", style="green")
+        table.add_column("Default", style="dim")
+        for k, default in _DEFAULTS.items():
+            current = getattr(cfg, k)
+            marker = "" if current == default else " *"
+            table.add_row(k, f"{current}{marker}", str(default))
+        console.print(table)
+        print_info("Values marked with * differ from defaults.")
+        return 0
+
+    if sub == "set":
+        if len(argv) < 3:
+            print_error("Usage: nux config set <key> <value>")
+            return 1
+        key = argv[1].lower()
+        value = argv[2]
+        if key not in _DEFAULTS:
+            print_error(f"Unknown config key: {key}")
+            print_info(f"Available keys: {', '.join(_DEFAULTS.keys())}")
+            return 1
+
+        target_type = type(_DEFAULTS[key])
+        try:
+            target_type(value)
+        except (ValueError, TypeError):
+            print_error(f"Invalid value for {key}: expected {target_type.__name__}")
+            return 1
+
+        lines: list[str] = []
+        if os.path.exists(RC_FILE):
+            with open(RC_FILE, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+
+        found = False
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            parsed_key = None
+            if "=" in stripped:
+                parsed_key = stripped.split("=", 1)[0].strip().lower()
+            elif ":" in stripped:
+                parsed_key = stripped.split(":", 1)[0].strip().lower()
+            if parsed_key == key:
+                lines[i] = f"{key} = {value}\n"
+                found = True
+                break
+
+        if not found:
+            lines.append(f"{key} = {value}\n")
+
+        with open(RC_FILE, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+
+        print_success(f"Set {key} = {value}")
+        return 0
+
+    if sub == "reset":
+        if os.path.exists(RC_FILE):
+            os.remove(RC_FILE)
+        print_success("Config reset to defaults.")
+        return 0
+
+    if sub == "path":
+        print(f"Config:  {RC_FILE}")
+        from nux.core.constants import DB_FILE, NUX_DIR, SKILLS_DIR
+        from nux.core.error_logger import ERROR_DIR
+
+        print(f"Data:    {NUX_DIR}")
+        print(f"Database: {DB_FILE}")
+        print(f"Skills:  {SKILLS_DIR}")
+        print(f"Errors:  {ERROR_DIR}")
+        return 0
+
+    print_error(f"Unknown config command: {sub}")
+    print_info("Usage: nux config [get|set|reset|path]")
+    return 1
+
+
+def _handle_skills(argv: list[str] | None) -> int | None:
+    from nux.core.constants import SKILLS_DIR
+
+    sub = argv[0] if argv else "list"
+
+    if sub == "search":
+        query = " ".join(argv[1:]) if len(argv) > 1 else ""
+        if not query:
+            print_error("Usage: nux skills search <query>")
+            return 1
+        from nux.search import BM25Searcher
+
+        searcher = BM25Searcher(documents_dir=SKILLS_DIR)
+        results = searcher.search(query, top_k=5)
+        if not results:
+            print_info(f"No skills found for: {query}")
+            return 0
+        from rich.table import Table
+
+        table = Table(box=None, padding=(0, 2, 0, 0))
+        table.add_column("Skill", style="cyan")
+        table.add_column("Score", style="green", justify="right")
+        for r in results:
+            table.add_row(r.title, str(r.score))
+        console.print(table)
+        return 0
+
+    if sub == "list" or sub == "":
+        import glob as _glob
+
+        pattern = os.path.join(SKILLS_DIR, "*.md")
+        files = sorted(_glob.glob(pattern))
+        if not files:
+            print_info("No skills found.")
+            return 0
+        from rich.table import Table
+
+        table = Table(box=None, padding=(0, 2, 0, 0))
+        table.add_column("Skill", style="cyan")
+        table.add_column("File", style="dim")
+        for f in files:
+            name = os.path.splitext(os.path.basename(f))[0]
+            table.add_row(name, os.path.basename(f))
+        console.print(table)
+        return 0
+
+    print_error(f"Unknown skills command: {sub}")
+    print_info("Usage: nux skills [list|search <query>]")
+    return 1
+
+
+def _handle_logs(argv: list[str] | None) -> int | None:
+    from nux.core.error_logger import ERROR_LOG
+
+    sub = argv[0] if argv else "show"
+
+    if sub == "clear":
+        if os.path.exists(ERROR_LOG):
+            os.remove(ERROR_LOG)
+            print_success("Logs cleared.")
+        else:
+            print_info("No logs to clear.")
+        return 0
+
+    if sub == "show" or sub == "":
+        if not os.path.exists(ERROR_LOG):
+            print_info("No error logs found.")
+            return 0
+        with open(ERROR_LOG, "r", encoding="utf-8") as f:
+            content = f.read()
+        if not content.strip():
+            print_info("Error log is empty.")
+            return 0
+        from rich.syntax import Syntax
+
+        console.print(Syntax(content, "log", theme="monokai", line_numbers=False))
+        return 0
+
+    print_error(f"Unknown logs command: {sub}")
+    print_info("Usage: nux logs [show|clear]")
+    return 1
+
+
+def _handle_doctor() -> int | None:
+    from rich.table import Table
+
+    table = Table(box=None, padding=(0, 2, 0, 0))
+    table.add_column("Check", style="cyan")
+    table.add_column("Status", justify="left")
+    table.add_column("Detail", style="dim")
+
+    from nux import __version__
+
+    table.add_row("Version", f"[green]OK[/green]", __version__)
+
+    from nux.core.config import RC_FILE, load_config
+
+    if os.path.exists(RC_FILE):
+        try:
+            cfg = load_config()
+            table.add_row("Config", f"[green]OK[/green]", RC_FILE)
+        except Exception as e:  # noqa: BLE001
+            table.add_row("Config", f"[red]FAIL[/red]", str(e))
+    else:
+        table.add_row("Config", "[yellow]MISSING[/yellow]", f"Not found: {RC_FILE}")
+
+    from nux.core.constants import DB_FILE
+
+    if os.path.exists(DB_FILE):
+        table.add_row("Database", f"[green]OK[/green]", DB_FILE)
+    else:
+        table.add_row("Database", "[yellow]MISSING[/yellow]", f"Not found: {DB_FILE}")
+
+    from nux.storage.apikeys import list_keys
+
+    keys = list_keys()
+    if keys:
+        active = [k for k in keys if k.active]
+        status = f"[green]OK[/green] ({len(keys)} keys, {len(active)} active)"
+        table.add_row("API Keys", status, "")
+    else:
+        table.add_row("API Keys", "[red]NONE[/red]", "Add one with: nux --add-key KEY")
+
+    from nux.server import running
+
+    if running():
+        table.add_row("Server", f"[green]OK[/green]", "Daemon running")
+    else:
+        table.add_row("Server", "[yellow]STOPPED[/yellow]", "Not running (starts on demand)")
+
+    from nux.core.constants import SKILLS_DIR
+
+    import glob as _glob
+
+    skill_count = len(_glob.glob(os.path.join(SKILLS_DIR, "*.md")))
+    table.add_row("Skills", f"[green]OK[/green]", f"{skill_count} skills loaded")
+
+    try:
+        import groq  # noqa: F401
+
+        table.add_row("Groq SDK", f"[green]OK[/green]", groq.__version__)
+    except ImportError:
+        table.add_row("Groq SDK", "[red]MISSING[/red]", "pip install groq")
+
+    try:
+        import rich  # noqa: F401
+
+        table.add_row("Rich", f"[green]OK[/green]", rich.__version__)
+    except ImportError:
+        table.add_row("Rich", "[red]MISSING[/red]", "pip install rich")
+
+    console.print(table)
+    return 0
+
+
 def _handle_command(argv: list[str] | None) -> int | None:
     if not argv:
         print_info(f"Available commands: {AVAILABLE_COMMANDS}")
@@ -404,6 +665,18 @@ def _handle_command(argv: list[str] | None) -> int | None:
 
     if name == "server":
         return _handle_server(cmd_args)
+
+    if name == "config":
+        return _handle_config(cmd_args)
+
+    if name == "skills":
+        return _handle_skills(cmd_args)
+
+    if name == "logs":
+        return _handle_logs(cmd_args)
+
+    if name == "doctor":
+        return _handle_doctor()
 
     print_error(f"Unknown command: {name}")
     print_info(f"Available commands: {AVAILABLE_COMMANDS}")
@@ -476,6 +749,21 @@ def main() -> str:
     if prompt.startswith("command ") or prompt == "command":
         parts = prompt.split(None, 1)
         sys.exit(_handle_command(parts[1].split() if len(parts) > 1 else []))
+
+    if prompt.startswith("config ") or prompt == "config":
+        parts = prompt.split(None, 1)
+        sys.exit(_handle_config(parts[1].split() if len(parts) > 1 else []))
+
+    if prompt.startswith("skills ") or prompt == "skills":
+        parts = prompt.split(None, 1)
+        sys.exit(_handle_skills(parts[1].split() if len(parts) > 1 else []))
+
+    if prompt.startswith("logs ") or prompt == "logs":
+        parts = prompt.split(None, 1)
+        sys.exit(_handle_logs(parts[1].split() if len(parts) > 1 else []))
+
+    if prompt == "doctor":
+        sys.exit(_handle_doctor())
 
     # If we ran actions but there's no prompt, exit
     if ran_action and not prompt:

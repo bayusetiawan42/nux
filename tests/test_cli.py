@@ -176,3 +176,38 @@ def test_new_flags_combined():
     assert args.verbose is True
     assert args.quiet is True
     assert args.prompt == ["hello"]
+
+
+def test_config_subcommand():
+    args = parse(["config", "get", "model"])
+    assert args.prompt == ["config", "get", "model"]
+
+
+def test_config_subcommand_no_args():
+    args = parse(["config"])
+    assert args.prompt == ["config"]
+
+
+def test_skills_subcommand():
+    args = parse(["skills"])
+    assert args.prompt == ["skills"]
+
+
+def test_skills_search_subcommand():
+    args = parse(["skills", "search", "network"])
+    assert args.prompt == ["skills", "search", "network"]
+
+
+def test_logs_subcommand():
+    args = parse(["logs"])
+    assert args.prompt == ["logs"]
+
+
+def test_logs_clear_subcommand():
+    args = parse(["logs", "clear"])
+    assert args.prompt == ["logs", "clear"]
+
+
+def test_doctor_subcommand():
+    args = parse(["doctor"])
+    assert args.prompt == ["doctor"]

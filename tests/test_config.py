@@ -3,13 +3,13 @@
 
 import pytest
 
-from sharkyo.core.config import load_config
+from nux.core.config import load_config
 
 
 def _patch_rc(monkeypatch, tmp_path, content: str) -> None:
-    rc = tmp_path / ".sharkyorc"
+    rc = tmp_path / ".nuxrc"
     rc.write_text(content, encoding="utf-8")
-    monkeypatch.setattr("sharkyo.core.config.RC_FILE", str(rc))
+    monkeypatch.setattr("nux.core.config.RC_FILE", str(rc))
 
 
 @pytest.mark.parametrize(
@@ -26,7 +26,7 @@ def test_supported_syntaxes(monkeypatch, tmp_path, syntax):
 
 
 def test_missing_rc_returns_defaults(monkeypatch, tmp_path):
-    monkeypatch.setattr("sharkyo.core.config.RC_FILE", str(tmp_path / "does-not-exist"))
+    monkeypatch.setattr("nux.core.config.RC_FILE", str(tmp_path / "does-not-exist"))
     cfg = load_config()
     assert cfg.model == "openai/gpt-oss-20b"
     assert cfg.max_history == 12

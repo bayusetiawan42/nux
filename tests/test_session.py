@@ -6,8 +6,8 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from sharkyo.server.daemon import Session
-from sharkyo.server.protocol import Packet
+from nux.server.daemon import Session
+from nux.server.protocol import Packet
 
 
 class TestSessionCreate:
@@ -48,18 +48,18 @@ class TestSessionEnvironmentContext:
     def test_get_environment_context(self):
         session = Session.create("test", cwd="/tmp")
         context = session.get_environment_context()
-        assert "Working Directory (CWD): /tmp" in context
+        assert "Working Directory: /tmp" in context
         assert "Current Time:" in context
 
     def test_get_environment_context_includes_git_info(self, monkeypatch):
-        def mock_run_git(args):
-            if args == ["config", "--get", "remote.origin.url"]:
+        def mock_run_cmd(cmd, args=None):
+            if cmd == "git" and args == ["config", "--get", "remote.origin.url"]:
                 return "https://github.com/test/repo.git"
-            if args == ["branch", "--show-current"]:
+            if cmd == "git" and args == ["branch", "--show-current"]:
                 return "main"
             return ""
 
-        monkeypatch.setattr("sharkyo.server.daemon._run_git", mock_run_git)
+        monkeypatch.setattr("nux.server.daemon._run_cmd", mock_run_cmd)
 
         session = Session.create("test", cwd="/tmp")
         context = session.get_environment_context()
@@ -67,7 +67,7 @@ class TestSessionEnvironmentContext:
         assert "Git Branch: main" in context
 
     def test_get_environment_context_no_git(self, monkeypatch):
-        monkeypatch.setattr("sharkyo.server.daemon._run_git", lambda args: "")
+        monkeypatch.setattr("nux.server.daemon._run_cmd", lambda cmd, args=None: "")
 
         session = Session.create("test", cwd="/tmp")
         context = session.get_environment_context()
@@ -78,7 +78,8 @@ class TestSessionEnvironmentContext:
 class TestSessionDataclass:
     def test_session_equality(self):
         packet = Packet(type="CLIENT", version="1.0", cwd="/tmp", message={"prompt": "hi"})
-        from sharkyo.core.config import Config
+        from nux.core.config import Config
+
         config = Config()
         s1 = Session(config=config, packet=packet)
         s2 = Session(config=config, packet=packet)
@@ -86,7 +87,8 @@ class TestSessionDataclass:
 
     def test_session_fields(self):
         packet = Packet(type="CLIENT", version="1.0", cwd="/tmp", message={"prompt": "hi"})
-        from sharkyo.core.config import Config
+        from nux.core.config import Config
+
         config = Config()
         session = Session(config=config, packet=packet)
         assert session.config is config

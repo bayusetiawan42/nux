@@ -3,7 +3,7 @@
 
 import pytest
 
-from sharkyo.cli import parse
+from nux.cli import parse
 
 
 def test_prompt_alone():
@@ -89,9 +89,11 @@ def test_stats_flag():
     args = parse(["--stats"])
     assert args.stats == ""
 
+
 def test_stats_with_index():
     args = parse(["--stats", "2"])
     assert args.stats == "2"
+
 
 def test_stats_equals_syntax():
     args = parse(["--stats=3"])

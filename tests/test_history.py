@@ -1,7 +1,7 @@
 # tests/test_history.py
 # Chat history store tests.
 
-from sharkyo.storage.history import HistoryManager
+from nux.storage.history import HistoryManager
 
 
 def test_append_and_load():

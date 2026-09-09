@@ -8,8 +8,8 @@ import time
 
 import pytest
 
-from sharkyo.server import daemon
-from sharkyo.server.defaults import PID_FILE, SOCKET_PATH
+from nux.server import daemon
+from nux.server.defaults import PID_FILE, SOCKET_PATH
 
 
 # Ensure daemon is stopped and paths are isolated for each test.
@@ -18,7 +18,8 @@ def cleanup_daemon(monkeypatch, tmp_path):
     monkeypatch.setattr(daemon, "SOCKET_PATH", str(tmp_path / "server.sock"))
     monkeypatch.setattr(daemon, "PID_FILE", str(tmp_path / "server.pid"))
     # Also patch the defaults module imports used by daemon
-    import sharkyo.server.defaults as defaults_mod
+    import nux.server.defaults as defaults_mod
+
     monkeypatch.setattr(defaults_mod, "SOCKET_PATH", str(tmp_path / "server.sock"))
     monkeypatch.setattr(defaults_mod, "PID_FILE", str(tmp_path / "server.pid"))
 
@@ -105,7 +106,8 @@ class TestPreload:
 
     def test_write_read_pid(self, tmp_path):
         pid_file = str(tmp_path / "test.pid")
-        import sharkyo.server.defaults as defaults_mod
+        import nux.server.defaults as defaults_mod
+
         original_pid_file = defaults_mod.PID_FILE
         try:
             defaults_mod.PID_FILE = pid_file
@@ -117,7 +119,8 @@ class TestPreload:
 
     def test_read_pid_nonexistent(self, tmp_path):
         pid_file = str(tmp_path / "nonexistent.pid")
-        import sharkyo.server.defaults as defaults_mod
+        import nux.server.defaults as defaults_mod
+
         original_pid_file = defaults_mod.PID_FILE
         try:
             defaults_mod.PID_FILE = pid_file

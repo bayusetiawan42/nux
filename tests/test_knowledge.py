@@ -1,7 +1,7 @@
 # tests/test_knowledge.py
 # Persistent knowledge store tests.
 
-from sharkyo.storage.knowledge import KnowledgeManager
+from nux.storage.knowledge import KnowledgeManager
 
 
 def test_set_get_list():

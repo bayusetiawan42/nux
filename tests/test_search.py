@@ -1,8 +1,8 @@
 # tests/test_search.py
 # Skill search tests.
 
-from sharkyo.core.constants import SKILLS_DIR
-from sharkyo.search import BM25Searcher, search_skills
+from nux.core.constants import SKILLS_DIR
+from nux.search import BM25Searcher, search_skills
 
 
 def test_finds_relevant_skill():

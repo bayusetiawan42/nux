@@ -4,8 +4,8 @@
 import sqlite3
 import time
 
-import sharkyo.storage.db
-from sharkyo.storage import apikeys
+import nux.storage.db
+from nux.storage import apikeys
 
 
 def test_add_and_list(fake_keyring):
@@ -19,7 +19,7 @@ def test_add_and_list(fake_keyring):
 
     # Raw secrets must never live in the database, only a keyring reference.
     rows = (
-        sqlite3.connect(sharkyo.storage.db.DB_FILE)
+        sqlite3.connect(nux.storage.db.DB_FILE)
         .execute("SELECT key_ref, storage FROM apikeys ORDER BY id")
         .fetchall()
     )

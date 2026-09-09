@@ -1,8 +1,8 @@
 # tests/test_cmd.py
 # CMD tool tests: arg parsing and the pty execution path.
 
-from sharkyo.core.config import Config
-from sharkyo.tools.cmd import CmdArgs, _run
+from nux.core.config import Config
+from nux.tools.cmd import CmdArgs, _run
 
 _config = Config()
 

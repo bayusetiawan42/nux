@@ -8,8 +8,8 @@ import time
 
 import pytest
 
-from sharkyo.server import client
-from sharkyo.server.protocol import Packet, send_message
+from nux.server import client
+from nux.server.protocol import Packet, send_message
 
 
 # Isolate client paths for each test.

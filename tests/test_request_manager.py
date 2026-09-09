@@ -5,9 +5,9 @@ import time
 
 import pytest
 
-from sharkyo.core.config import Config
-from sharkyo.core.errors import NoAPIKeyError
-from sharkyo.core.request_manager import RequestManager
+from nux.core.config import Config
+from nux.core.errors import NoAPIKeyError
+from nux.core.request_manager import RequestManager
 
 
 def _fake_exc(headers: dict) -> object:

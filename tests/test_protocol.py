@@ -6,7 +6,7 @@ import threading
 
 import pytest
 
-from sharkyo.server.protocol import Packet, recv_message, send_message
+from nux.server.protocol import Packet, recv_message, send_message
 
 
 class TestPacket:
@@ -44,19 +44,20 @@ class TestSendRecv:
     # Create a connected socket pair for testing.
     def _make_pair(self):
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        server_sock.bind("/tmp/test_sharkyo_proto.sock")
+        server_sock.bind("/tmp/test_nux_proto.sock")
         server_sock.listen(1)
 
         client_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        client_sock.connect("/tmp/test_sharkyo_proto.sock")
+        client_sock.connect("/tmp/test_nux_proto.sock")
         conn, _ = server_sock.accept()
 
         return client_sock, conn
 
     def teardown_method(self):
         import os
+
         try:
-            os.unlink("/tmp/test_sharkyo_proto.sock")
+            os.unlink("/tmp/test_nux_proto.sock")
         except FileNotFoundError:
             pass
 

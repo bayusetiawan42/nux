@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import os
+import re
 import signal
+import platform
 import socket
 import subprocess
 import sys
@@ -23,21 +25,21 @@ if TYPE_CHECKING:
 
 VERSION_MISMATCH_EXIT = -2
 
+# run command for environmental context
+def _run_cmd(cmd: str, args: list[str] | None = None) -> str:
+    if args is None:
+        args = []
 
-def _run_git(args: list[str]) -> str:
     try:
         return (
             subprocess.check_output(
-                ["git"] + args,
+                [cmd] + args,
                 stderr=subprocess.DEVNULL,
-                timeout=0.2,
-            )
-            .decode("utf-8")
-            .strip()
+                timeout=0.2
+            ).decode("utf-8").strip()
         )
     except (subprocess.SubprocessError, OSError):
         return ""
-
 
 @dataclass
 class Session:
@@ -68,12 +70,32 @@ class Session:
 
     def get_environment_context(self) -> str:
         cwd = self.packet.cwd or os.getcwd()
-        git_remote = _run_git(["config", "--get", "remote.origin.url"])
-        git_branch = _run_git(["branch", "--show-current"])
+        git_remote = _run_cmd("git", ["config", "--get", "remote.origin.url"])
+        git_branch = _run_cmd("git", ["branch", "--show-current"])
+
+        system_platform = platform.system().lower()
+        uname_info = _run_cmd("uname", ["-a"])
+        
+        if "darwin" in system_platform:  # macOS
+            sw_vers_raw = _run_cmd("sw_vers", [])
+            version_match = re.search(r"ProductVersion:\s*(.*)", sw_vers_raw)
+            version = version_match.group(1).strip() if version_match else "Unknown version"
+            os_name_version = f"macOS {version}"
+        else:  # Linux
+            if os.path.exists("/etc/os-release"):
+                with open("/etc/os-release", "r") as f:
+                    content = f.read()
+                pretty_name_match = re.search(r'^PRETTY_NAME=["\']?(.*?)["\']?$', content, re.M)
+                os_name_version = pretty_name_match.group(1) if pretty_name_match else "Linux"
+            else:
+                os_name_version = "Linux (Unknown Distro)"
+
+        os_info = f"{os_name_version} | {uname_info}".strip()
 
         lines = [
+            f"OS Information:\n {os_info}\n\n",
+            f"Working Directory: {cwd}",
             f"Current Time: {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S')}",
-            f"Working Directory (CWD): {cwd}",
         ]
 
         if git_remote:

@@ -211,3 +211,76 @@ def test_logs_clear_subcommand():
 def test_doctor_subcommand():
     args = parse(["doctor"])
     assert args.prompt == ["doctor"]
+
+
+def test_dry_run_flag():
+    args = parse(["-n", "hello"])
+    assert args.dry_run is True
+    assert args.prompt == ["hello"]
+
+
+def test_dry_run_long_flag():
+    args = parse(["--dry-run", "hello"])
+    assert args.dry_run is True
+
+
+def test_resume_flag():
+    args = parse(["-r"])
+    assert args.resume is True
+    assert args.prompt == []
+
+
+def test_resume_long_flag():
+    args = parse(["--resume"])
+    assert args.resume is True
+
+
+def test_sessions_flag():
+    args = parse(["--sessions"])
+    assert args.sessions is True
+    assert args.prompt == []
+
+
+def test_json_flag():
+    args = parse(["--json", "hello"])
+    assert args.json_output is True
+    assert args.prompt == ["hello"]
+
+
+def test_timeout_flag():
+    args = parse(["--timeout", "30", "hello"])
+    assert args.timeout == 30
+    assert args.prompt == ["hello"]
+
+
+def test_timeout_invalid_exits():
+    with pytest.raises(SystemExit):
+        parse(["--timeout", "abc"])
+
+
+def test_timeout_missing_value_exits():
+    with pytest.raises(SystemExit):
+        parse(["--timeout"])
+
+
+def test_medium_flags_defaults():
+    args = parse([])
+    assert args.dry_run is False
+    assert args.resume is False
+    assert args.sessions is False
+    assert args.json_output is False
+    assert args.timeout is None
+
+
+def test_medium_flags_combined():
+    args = parse(["--dry-run", "--resume", "--json", "--timeout", "10", "hello"])
+    assert args.dry_run is True
+    assert args.resume is True
+    assert args.json_output is True
+    assert args.timeout == 10
+    assert args.prompt == ["hello"]
+
+
+def test_sessions_subcommand():
+    args = parse(["sessions"])
+    assert args.prompt == ["sessions"]

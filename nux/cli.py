@@ -29,6 +29,11 @@ class CliArgs:
     no_color: bool = False
     verbose: bool = False
     quiet: bool = False
+    dry_run: bool = False
+    resume: bool = False
+    sessions: bool = False
+    json_output: bool = False
+    timeout: int | None = None
 
 
 _DESCRIPTION = "Nux. Your terminal on steroids!"
@@ -58,6 +63,11 @@ _OPTIONS = [
     ("--no-color", "disable colored output"),
     ("-V, --verbose", "show tool calls and intermediate steps"),
     ("-q, --quiet", "suppress all output except final reply"),
+    ("-n, --dry-run", "show what the agent would do without executing"),
+    ("-r, --resume", "resume the last conversation"),
+    ("--sessions", "list past sessions"),
+    ("--json", "output in JSON format"),
+    ("--timeout <seconds>", "set execution timeout"),
     ("-h, --help", "show this help message and exit"),
 ]
 
@@ -124,6 +134,24 @@ def parse(argv: list[str] | None = None) -> CliArgs:
             args.verbose = True
         elif arg == "-q" or arg == "--quiet":
             args.quiet = True
+        elif arg == "-n" or arg == "--dry-run":
+            args.dry_run = True
+        elif arg == "-r" or arg == "--resume":
+            args.resume = True
+        elif arg == "--sessions":
+            args.sessions = True
+        elif arg == "--json":
+            args.json_output = True
+        elif arg == "--timeout":
+            i += 1
+            if i >= n:
+                print_error("--timeout requires a value")
+                sys.exit(1)
+            try:
+                args.timeout = int(argv[i])
+            except ValueError:
+                print_error("--timeout must be an integer (seconds)")
+                sys.exit(1)
         elif arg == "--add-key":
             i += 1
             if i >= n:
@@ -520,6 +548,56 @@ def _handle_skills(argv: list[str] | None) -> int | None:
     return 1
 
 
+def _handle_sessions() -> int | None:
+    from datetime import datetime, timezone
+
+    from nux.storage.db import execute_read
+    from rich.table import Table
+
+    rows = execute_read(
+        "SELECT role, content, created_at FROM history ORDER BY id"
+    )
+    if not rows:
+        print_info("No sessions found.")
+        return 0
+
+    sessions: list[dict] = []
+    current: list[dict] = []
+    last_ts = 0
+    gap = 1800  # 30 minutes
+
+    for row in rows:
+        ts = row["created_at"]
+        if current and (ts - last_ts) > gap:
+            sessions.append({"messages": current, "start": current[0]["created_at"]})
+            current = []
+        current.append(row)
+        last_ts = ts
+
+    if current:
+        sessions.append({"messages": current, "start": current[0]["created_at"]})
+
+    table = Table(box=None, padding=(0, 2, 0, 0))
+    table.add_column("#", style="dim", justify="right")
+    table.add_column("Started", style="cyan")
+    table.add_column("Messages", style="green", justify="right")
+    table.add_column("Preview", style="dim")
+
+    for i, sess in enumerate(reversed(sessions), 1):
+        start_dt = datetime.fromtimestamp(sess["start"], tz=timezone.utc)
+        start_str = start_dt.strftime("%Y-%m-%d %H:%M")
+        msg_count = len(sess["messages"])
+        first_user = next(
+            (m for m in sess["messages"] if m["role"] == "user"), None
+        )
+        preview = (first_user["content"] or "")[:50] if first_user else "-"
+        table.add_row(str(i), start_str, str(msg_count), preview)
+
+    console.print(table)
+    print_info(f"{len(sessions)} session(s) found.")
+    return 0
+
+
 def _handle_logs(argv: list[str] | None) -> int | None:
     from nux.core.error_logger import ERROR_LOG
 
@@ -675,6 +753,9 @@ def _handle_command(argv: list[str] | None) -> int | None:
     if name == "logs":
         return _handle_logs(cmd_args)
 
+    if name == "sessions":
+        return _handle_sessions()
+
     if name == "doctor":
         return _handle_doctor()
 
@@ -762,6 +843,9 @@ def main() -> str:
         parts = prompt.split(None, 1)
         sys.exit(_handle_logs(parts[1].split() if len(parts) > 1 else []))
 
+    if prompt == "sessions":
+        sys.exit(_handle_sessions())
+
     if prompt == "doctor":
         sys.exit(_handle_doctor())
 
@@ -780,4 +864,12 @@ def main() -> str:
 
 def get_flags() -> dict:
     args = parse()
-    return {"verbose": args.verbose, "quiet": args.quiet, "no_color": args.no_color}
+    return {
+        "verbose": args.verbose,
+        "quiet": args.quiet,
+        "no_color": args.no_color,
+        "dry_run": args.dry_run,
+        "resume": args.resume,
+        "json_output": args.json_output,
+        "timeout": args.timeout,
+    }

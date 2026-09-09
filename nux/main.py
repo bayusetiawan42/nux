@@ -1,6 +1,7 @@
 # main.py
 # Nux - main CLI entry point.
 
+import json
 import sys
 
 from nux.cli import main as run_cli, get_flags
@@ -31,18 +32,34 @@ def main() -> None:
         from nux.server.daemon import Session
 
         session = Session.create(prompt, flags=flags)
-        Agent(session).run(prompt)
+        agent = Agent(session)
+        agent.run(prompt)
+
+        if flags.get("json_output"):
+            output = {
+                "reply": agent.last_reply,
+                "model": session.config.model,
+                "dry_run": session.dry_run,
+            }
+            print(json.dumps(output, ensure_ascii=False))
+
     except NuxError as e:
         log_error(e, context=f"prompt={prompt!r}")
-        from nux.ui.display import print_error
+        if flags.get("json_output"):
+            print(json.dumps({"error": str(e)}, ensure_ascii=False))
+        else:
+            from nux.ui.display import print_error
 
-        print_error(str(e))
+            print_error(str(e))
         sys.exit(1)
     except Exception as e:  # noqa: BLE001
         log_error(e, context=f"prompt={prompt!r}")
-        from nux.ui.display import print_error
+        if flags.get("json_output"):
+            print(json.dumps({"error": str(e)}, ensure_ascii=False))
+        else:
+            from nux.ui.display import print_error
 
-        print_error(str(e))
+            print_error(str(e))
         sys.exit(1)
 
 

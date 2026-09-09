@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import signal
 from typing import TYPE_CHECKING
 
 from nux.core.constants import SYSTEM_PROMPT
@@ -21,6 +22,10 @@ if TYPE_CHECKING:
     from nux.server.daemon import Session
 
 
+class _TimeoutError(Exception):
+    pass
+
+
 class Agent:
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -28,6 +33,7 @@ class Agent:
         self.knowledge_mgr = KnowledgeManager()
         self.request_mgr = RequestManager(self.session.config)
         self._searcher = BM25Searcher()
+        self.last_reply: str = ""
 
     # -- prompt construction --
 
@@ -121,6 +127,14 @@ class Agent:
 
             if not tool_calls:
                 self.history_mgr.append_assistant(text_reply or None)
+                self.last_reply = text_reply
+                return
+
+            if self.session.dry_run:
+                print_info("[dry-run] Agent would execute:")
+                for tc in tool_calls:
+                    print_info(f"  {tc.function.name}({tc.function.arguments})")
+                self.history_mgr.append_assistant(text_reply or None, tool_calls)
                 return
 
             if self.session.verbose:
@@ -145,7 +159,41 @@ class Agent:
     # -- public API --
 
     def run(self, user_input: str) -> None:
+        if self.session.packet.message.get("resume") and not user_input:
+            from nux.storage.db import execute_read
+
+            rows = execute_read(
+                "SELECT role, content FROM history ORDER BY id DESC LIMIT 6",
+            )
+            if not rows:
+                print_info("No history to resume.")
+                return
+            print_info("Resuming from last conversation:")
+            for row in reversed(rows):
+                role = row["role"]
+                content = row["content"] or ""
+                if role == "user":
+                    print_info(f"  you: {content[:100]}")
+                elif role == "assistant":
+                    print_info(f"  nux: {content[:100]}")
+            return
+
         history = self.history_mgr.load()
         self.history_mgr.append_user(user_input)
         messages = self._build_messages(user_input, history)
-        self._run_tool_loop(messages)
+
+        if self.session.timeout:
+            def _timeout_handler(signum: int, frame: object) -> None:
+                raise _TimeoutError()
+
+            prev = signal.signal(signal.SIGALRM, _timeout_handler)
+            signal.alarm(self.session.timeout)
+            try:
+                self._run_tool_loop(messages)
+            except _TimeoutError:
+                print_error(f"Timed out after {self.session.timeout}s")
+            finally:
+                signal.alarm(0)
+                signal.signal(signal.SIGALRM, prev)
+        else:
+            self._run_tool_loop(messages)

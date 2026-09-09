@@ -47,6 +47,8 @@ class Session:
     packet: Packet
     verbose: bool = False
     quiet: bool = False
+    dry_run: bool = False
+    timeout: int | None = None
 
     @classmethod
     def create(cls, prompt: str, cwd: str | None = None, packet: Packet | None = None, flags: dict | None = None) -> Session:
@@ -74,6 +76,8 @@ class Session:
             packet=packet,
             verbose=flags.get("verbose", False) if flags else False,
             quiet=flags.get("quiet", False) if flags else False,
+            dry_run=flags.get("dry_run", False) if flags else False,
+            timeout=flags.get("timeout") if flags else None,
         )
 
     def get_environment_context(self) -> str:
@@ -163,6 +167,8 @@ def _default_turn_runner(
         flags = {
             "verbose": packet.message.get("verbose", False),
             "quiet": packet.message.get("quiet", False),
+            "dry_run": packet.message.get("dry_run", False),
+            "timeout": packet.message.get("timeout"),
         }
 
         try:

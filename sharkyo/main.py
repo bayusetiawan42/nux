@@ -1,5 +1,5 @@
 # main.py
-# Sharkyo — main CLI entry point.
+# Sharkyo - main CLI entry point.
 
 import sys
 

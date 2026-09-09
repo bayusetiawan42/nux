@@ -41,8 +41,8 @@ class TestPacket:
 
 
 class TestSendRecv:
+    # Create a connected socket pair for testing.
     def _make_pair(self):
-        """Create a connected socket pair for testing."""
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind("/tmp/test_sharkyo_proto.sock")
         server_sock.listen(1)
@@ -75,7 +75,7 @@ class TestSendRecv:
             server.close()
 
     def test_send_recv_client_packet_no_fds(self):
-        """Client packet without FDs should still work."""
+        # Client packet without FDs should still work.
         client, server = self._make_pair()
         try:
             packet = Packet(type="CLIENT", version="0.1.0", cwd="/tmp", message={"prompt": "test"})

@@ -1,4 +1,4 @@
-# Sharkyo — Your shark in the terminal.
+# Sharkyo - Your shark in the terminal.
 
 from importlib.metadata import PackageNotFoundError, version
 

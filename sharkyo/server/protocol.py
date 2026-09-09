@@ -1,5 +1,5 @@
 # server/protocol.py
-# Universal socket wire protocol — Packet-based send/recv with SCM_RIGHTS FD passing.
+# Universal socket wire protocol - Packet-based send/recv with SCM_RIGHTS FD passing.
 
 from __future__ import annotations
 

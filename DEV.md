@@ -51,6 +51,20 @@ Always import from the canonical module location. Do NOT import from top-level s
 - No comments unless absolutely necessary
 - Follow existing patterns in the codebase
 
+### Comments
+
+- Use `#` for all comments, never `"""`
+- Multiline comments use multiple `#` lines:
+  ```python
+  # Line 1
+  # Line 2
+  ```
+
+### Language
+
+- All code, comments, docstrings, variable names, and text must be in English
+- No mixed languages in code files
+
 ### Testing
 
 - Framework: `pytest`

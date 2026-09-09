@@ -60,8 +60,8 @@ def _wait_for_daemon(deadline: float) -> bool:
     return False
 
 
+# Send prompt to daemon, return (exit_code, should_retry).
 def _send_and_wait(prompt: str) -> tuple[int | None, bool]:
-    """Send prompt to daemon, return (exit_code, should_retry)."""
     conn = _connect()
     if conn is None:
         return None, False

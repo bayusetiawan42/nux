@@ -12,9 +12,9 @@ from sharkyo.server import client
 from sharkyo.server.protocol import Packet, send_message
 
 
+# Isolate client paths for each test.
 @pytest.fixture(autouse=True)
 def cleanup_client(monkeypatch, tmp_path):
-    """Isolate client paths for each test."""
     sock_path = str(tmp_path / "client_test.sock")
     monkeypatch.setattr(client, "SOCKET_PATH", sock_path)
     yield

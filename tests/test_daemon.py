@@ -12,9 +12,9 @@ from sharkyo.server import daemon
 from sharkyo.server.defaults import PID_FILE, SOCKET_PATH
 
 
+# Ensure daemon is stopped and paths are isolated for each test.
 @pytest.fixture(autouse=True)
 def cleanup_daemon(monkeypatch, tmp_path):
-    """Ensure daemon is stopped and paths are isolated for each test."""
     monkeypatch.setattr(daemon, "SOCKET_PATH", str(tmp_path / "server.sock"))
     monkeypatch.setattr(daemon, "PID_FILE", str(tmp_path / "server.pid"))
     # Also patch the defaults module imports used by daemon

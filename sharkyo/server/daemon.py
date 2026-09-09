@@ -95,7 +95,7 @@ def register_turn_runner(
 
 def _send_server(conn: socket.socket, message: dict) -> None:
     from sharkyo import __version__
-    send_message(conn, Packet(type="SERVER", version=__version__, cwd="", env={}, message=message))
+    send_message(conn, Packet(type="SERVER", version=__version__, cwd="", message=message))
 
 
 def _default_turn_runner(

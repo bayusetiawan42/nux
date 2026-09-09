@@ -153,7 +153,6 @@ def execute(args: dict, session: Session) -> ToolResult:
             session.config,
             parsed.pass_output_to_user,
             cwd=session.packet.cwd,
-            env=session.packet.env,
         )
     except KeyboardInterrupt:
         print_info("Command interrupted.")

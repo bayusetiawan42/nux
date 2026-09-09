@@ -16,7 +16,6 @@ class Packet:
     type: str  # "CLIENT" | "SERVER"
     version: str
     cwd: str
-    env: dict[str, str]
 
     # Standard message dict:
     # "prompt": str   -> prompt to model  (server/daemon)
@@ -28,7 +27,6 @@ class Packet:
             "type": self.type,
             "version": self.version,
             "cwd": self.cwd,
-            "env": self.env,
             "message": self.message,
         }
 
@@ -38,7 +36,6 @@ class Packet:
             type=data["type"],
             version=data.get("version", ""),
             cwd=data.get("cwd", ""),
-            env=data.get("env", {}),
             message=data.get("message", {}),
         )
 

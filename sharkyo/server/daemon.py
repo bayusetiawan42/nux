@@ -61,7 +61,6 @@ class Session:
                 type="CLIENT",
                 version=__version__,
                 cwd=cwd or os.getcwd(),
-                env={},
                 message={"prompt": prompt},
             )
         return cls(config=config, packet=packet)

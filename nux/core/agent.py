@@ -66,8 +66,8 @@ class Agent:
     def _parse_tool_args(self, tc: ChatCompletionMessageToolCall) -> dict:
         try:
             return json.loads(tc.function.arguments)
-        except json.JSONDecodeError:
-            return {}
+        except (json.JSONDecodeError, TypeError):
+            return {"_parse_error": tc.function.arguments}
 
     def _execute_tools(
         self,
@@ -77,7 +77,17 @@ class Agent:
         executed: list[tuple[ChatCompletionMessageToolCall, ToolResult]] = []
 
         for tc in tool_calls:
-            result = dispatch_tool(tc.function.name, self._parse_tool_args(tc), self.session)
+            parsed_args = self._parse_tool_args(tc)
+            if "_parse_error" in parsed_args:
+                result = ToolResult(
+                    output=(
+                        f"Error: Failed to parse tool arguments as JSON. "
+                        f"Raw: {parsed_args['_parse_error']}"
+                    ),
+                    should_continue=True,
+                )
+            else:
+                result = dispatch_tool(tc.function.name, parsed_args, self.session)
             executed.append((tc, result))
             if not result.should_continue:
                 return executed, True

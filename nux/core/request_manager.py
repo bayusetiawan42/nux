@@ -123,6 +123,17 @@ class RequestManager:
                     raise AuthenticationFailedError(f"Authentication failed: {e.message}") from e
                 if exc_type == "APIConnectionError":
                     raise APIRequestError(f"Connection error: {e}") from e
+                if exc_type == "APIStatusError" and getattr(e, "status_code", 0) == 400:
+                    error_body = getattr(e, "response", None)
+                    if error_body is not None:
+                        try:
+                            body = error_body.json()
+                            code = body.get("error", {}).get("code", "")
+                            if code == "tool_use_failed":
+                                continue
+                        except Exception:  # noqa: BLE001, S110
+                            pass
+                    raise APIRequestError(f"API error ({e.status_code}): {e.message}") from e
                 if exc_type == "APIStatusError":
                     raise APIRequestError(f"API error ({e.status_code}): {e.message}") from e
                 raise

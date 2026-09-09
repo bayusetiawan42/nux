@@ -52,49 +52,26 @@ def _make_sigint_handler(child_pid: int):
     return _forward
 
 
-def _send_request(prompt: str) -> tuple[Packet, int | None]:
+def _wait_for_daemon(deadline: float) -> bool:
+    while time.monotonic() < deadline:
+        if _connect() is not None:
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def _send_and_wait(prompt: str) -> tuple[int | None, bool]:
+    """Send prompt to daemon, return (exit_code, should_retry)."""
     conn = _connect()
     if conn is None:
-        return None, None  # type: ignore[return-value]
-
-    packet = Packet(
-        type="CLIENT",
-        version=__version__,
-        cwd=os.getcwd(),
-        env=dict(os.environ),
-        message={"prompt": prompt},
-    )
-
-    try:
-        send_message(conn, packet)
-        pid_packet, _ = recv_message(conn)
-        child_pid = pid_packet.message.get("pid")
-        return pid_packet, child_pid
-    except OSError:
-        return None, None  # type: ignore[return-value]
-
-
-def run_remote(prompt: str) -> int | None:
-    if not running():
-        start_daemon()
-        deadline = time.monotonic() + STARTUP_WAIT
-        while time.monotonic() < deadline:
-            if _connect() is not None:
-                break
-            time.sleep(0.1)
-        else:
-            return None
-
-    conn = _connect()
-    if conn is None:
-        return None
+        return None, False
 
     try:
         packet = Packet(
             type="CLIENT",
             version=__version__,
             cwd=os.getcwd(),
-            env=dict(os.environ),
+            env={},
             message={"prompt": prompt},
         )
         send_message(conn, packet)
@@ -102,19 +79,19 @@ def run_remote(prompt: str) -> int | None:
         pid_packet, _ = recv_message(conn)
         child_pid = pid_packet.message.get("pid")
         if child_pid is None:
-            return None
+            return None, False
 
         prev = signal.signal(signal.SIGINT, _make_sigint_handler(child_pid))
         try:
             exit_packet, _ = recv_message(conn)
             code = exit_packet.message.get("exit_code")
             if code == VERSION_MISMATCH_EXIT:
-                return _retry(prompt)
-            return code
+                return code, True
+            return code, False
         finally:
             signal.signal(signal.SIGINT, prev)
     except OSError:
-        return None
+        return None, False
     finally:
         try:
             conn.close()
@@ -122,48 +99,21 @@ def run_remote(prompt: str) -> int | None:
             pass
 
 
-def _retry(prompt: str) -> int | None:
-    from sharkyo.server.daemon import stop
-
-    stop()
-    start_daemon()
-    deadline = time.monotonic() + STARTUP_WAIT
-    while time.monotonic() < deadline:
-        if _connect() is not None:
-            break
-        time.sleep(0.1)
-    else:
-        return None
-
-    conn = _connect()
-    if conn is None:
-        return None
-
-    try:
-        packet = Packet(
-            type="CLIENT",
-            version=__version__,
-            cwd=os.getcwd(),
-            env=dict(os.environ),
-            message={"prompt": prompt},
-        )
-        send_message(conn, packet)
-
-        pid_packet, _ = recv_message(conn)
-        child_pid = pid_packet.message.get("pid")
-        if child_pid is None:
+def run_remote(prompt: str) -> int | None:
+    if not running():
+        start_daemon()
+        if not _wait_for_daemon(time.monotonic() + STARTUP_WAIT):
             return None
 
-        prev = signal.signal(signal.SIGINT, _make_sigint_handler(child_pid))
-        try:
-            exit_packet, _ = recv_message(conn)
-            return exit_packet.message.get("exit_code")
-        finally:
-            signal.signal(signal.SIGINT, prev)
-    except OSError:
-        return None
-    finally:
-        try:
-            conn.close()
-        except OSError:
-            pass
+    code, should_retry = _send_and_wait(prompt)
+
+    if should_retry:
+        from sharkyo.server.daemon import stop
+
+        stop()
+        start_daemon()
+        if not _wait_for_daemon(time.monotonic() + STARTUP_WAIT):
+            return None
+        code, _ = _send_and_wait(prompt)
+
+    return code

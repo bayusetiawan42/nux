@@ -117,7 +117,7 @@ def test_help_flag(capsys):
     assert "Usage:" in captured.out
     assert "Commands:" in captured.out
     assert "Options:" in captured.out
-    assert "Examples:" in captured.out
+    assert "--" in captured.out
 
 
 def test_version_flag(capsys):

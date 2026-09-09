@@ -76,18 +76,9 @@ _OPTIONS = [
     ("--max-turns <n>", "limit agentic loop iterations"),
     ("--no-confirm", "skip confirmation prompts for tool execution"),
     ("--tool <t1,t2>", "restrict agent to specific tools (comma-separated)"),
+    ("--", "treat everything after as prompt (even if starts with -)"),
     ("-h, --help", "show this help message and exit"),
 ]
-
-_EXAMPLES = [
-    'nux "compress this folder"',
-    "nux --clear --clear-knowledge",
-    'nux --clear -- "Change this repo to private"',
-    "nux command keys",
-    "nux server status",
-    "nux reload",
-]
-
 
 def _col_width(items: list[tuple[str, str]]) -> int:
     return max(len(syn) for syn, _ in items) + 2
@@ -104,10 +95,6 @@ def print_help() -> None:
     w = _col_width(_OPTIONS)
     for syn, desc in _OPTIONS:
         print(f"  {syn:<{w}}{desc}")
-    print()
-    print("Examples:")
-    for ex in _EXAMPLES:
-        print(f"  {ex}")
 
 
 def parse(argv: list[str] | None = None) -> CliArgs:

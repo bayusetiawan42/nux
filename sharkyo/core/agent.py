@@ -13,15 +13,12 @@ from sharkyo.storage.history import HistoryManager
 from sharkyo.storage.knowledge import KnowledgeManager
 from sharkyo.tools import dispatch_tool
 from sharkyo.tools.result import ToolResult, serialize_tool_call
-from sharkyo.ui.display import print_error, print_reply, yaspin_if_tty
+from sharkyo.ui.display import print_reply, yaspin_if_tty
 
 if TYPE_CHECKING:
     from groq.types.chat import ChatCompletionMessageToolCall
 
     from sharkyo.server.daemon import Session
-
-MAX_TOOL_ITERATIONS = 10
-
 
 class Agent:
     def __init__(self, session: Session) -> None:
@@ -34,34 +31,27 @@ class Agent:
     # -- prompt construction --
 
     def _build_system_prompt(self) -> str:
-        parts = [SYSTEM_PROMPT]
-
         entries = self.knowledge_mgr.list_all()
-        if entries:
-            block = "\n".join(f"{k} = {v}" for k, v in entries)
-            parts.append(f"<user_knowledge>\n{block}\n</user_knowledge>")
-
         env_ctx = self.session.get_environment_context()
-        parts.append(f"<environment_context>\n{env_ctx}\n</environment_context>")
 
-        return "\n\n".join(parts)
+        if entries:
+            knowledges = "\n".join(f"{k} = {v}" for k, v in entries)
+        else:
+            knowledges = "No knowledges is stored."
 
-    def _build_skill_hint(self, user_input: str) -> str | None:
-        results = self._searcher.search(user_input, top_k=3)
-        if not results:
-            return None
-        names = ", ".join(f"'{r.name}'" for r in results)
-        return (
-            f"[Relevant skills: {names}. Consider calling SKILL with one of these before acting.]"
+        system_prompt = (
+        F"<system_prompt>\n{SYSTEM_PROMPT}\n</system_prompt>\n\n"
+        F"<krowledge>\n{knowledges or None}\n</knowledge>\n\n"
+        F"<environment_context>\n{env_ctx}\n</environment_context>"
         )
 
+        return system_prompt
+
     def _build_messages(self, user_input: str, history: list[dict]) -> list[dict]:
-        skill_hint = self._build_skill_hint(user_input)
-        augmented_input = f"{skill_hint}\n\n{user_input}" if skill_hint else user_input
         return (
             [{"role": "system", "content": self._build_system_prompt()}]
             + history
-            + [{"role": "user", "content": augmented_input}]
+            + [{"role": "user", "content": user_input}]
         )
 
     # -- tool helpers --
@@ -75,8 +65,13 @@ class Agent:
     def _execute_tools(
         self,
         tool_calls: list[ChatCompletionMessageToolCall],
-    ) -> tuple[list[tuple[ChatCompletionMessageToolCall, ToolResult]], bool]:
+
+    ) -> tuple[
+            list[tuple[ChatCompletionMessageToolCall, ToolResult]
+        ], bool]:
+
         executed: list[tuple[ChatCompletionMessageToolCall, ToolResult]] = []
+
         for tc in tool_calls:
             result = dispatch_tool(tc.function.name, self._parse_tool_args(tc), self.session)
             executed.append((tc, result))
@@ -90,6 +85,7 @@ class Agent:
         executed: list[tuple[ChatCompletionMessageToolCall, ToolResult]],
         text_reply: str,
     ) -> None:
+
         self.history_mgr.append_assistant(text_reply or None, [tc for tc, _ in executed])
         messages.append(
             {
@@ -112,7 +108,8 @@ class Agent:
 
     def _run_tool_loop(self, messages: list[dict]) -> None:
         text_reply = ""
-        for _ in range(MAX_TOOL_ITERATIONS):
+
+        while True:
             with yaspin_if_tty():
                 response = self.request_mgr.chat(messages)
 
@@ -137,9 +134,6 @@ class Agent:
 
             if stopped:
                 return
-
-        print_error("Reached maximum tool iterations; stopping.")
-        self.history_mgr.append_assistant(text_reply or None)
 
     # -- public API --
 

@@ -27,7 +27,7 @@ sharkyo = "sharkyo.main:main"
 include = ["sharkyo*"]
 
 [tool.setuptools.package-data]
-sharkyo = ["skills/*.md", "skills/*.txt"]
+sharkyo = ["skills/*.md"]
 
 [tool.ruff]
 line-length = 100

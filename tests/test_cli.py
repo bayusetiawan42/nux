@@ -118,3 +118,61 @@ def test_help_flag(capsys):
     assert "Commands:" in captured.out
     assert "Options:" in captured.out
     assert "Examples:" in captured.out
+
+
+def test_version_flag(capsys):
+    with pytest.raises(SystemExit):
+        parse(["--version"])
+    captured = capsys.readouterr()
+    assert "nux" in captured.out
+
+
+def test_version_short_flag(capsys):
+    with pytest.raises(SystemExit):
+        parse(["-v"])
+    captured = capsys.readouterr()
+    assert "nux" in captured.out
+
+
+def test_no_color_flag():
+    args = parse(["--no-color", "hello"])
+    assert args.no_color is True
+    assert args.prompt == ["hello"]
+
+
+def test_verbose_flag():
+    args = parse(["-V", "hello"])
+    assert args.verbose is True
+    assert args.prompt == ["hello"]
+
+
+def test_verbose_long_flag():
+    args = parse(["--verbose", "hello"])
+    assert args.verbose is True
+
+
+def test_quiet_flag():
+    args = parse(["-q", "hello"])
+    assert args.quiet is True
+    assert args.prompt == ["hello"]
+
+
+def test_quiet_long_flag():
+    args = parse(["--quiet", "hello"])
+    assert args.quiet is True
+
+
+def test_new_flags_defaults():
+    args = parse([])
+    assert args.version is False
+    assert args.no_color is False
+    assert args.verbose is False
+    assert args.quiet is False
+
+
+def test_new_flags_combined():
+    args = parse(["--no-color", "--verbose", "--quiet", "hello"])
+    assert args.no_color is True
+    assert args.verbose is True
+    assert args.quiet is True
+    assert args.prompt == ["hello"]

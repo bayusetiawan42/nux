@@ -24,6 +24,10 @@ class CliArgs:
     knowledge: bool = False
     delete_knowledge: str | None = None
     clear_knowledge: bool = False
+    version: bool = False
+    no_color: bool = False
+    verbose: bool = False
+    quiet: bool = False
 
 
 _DESCRIPTION = "Nux. Your terminal on steroids!"
@@ -36,6 +40,7 @@ _COMMANDS = [
 ]
 
 _OPTIONS = [
+    ("-v, --version", "show version and exit"),
     ("--add-key <key>", "add a Groq API key"),
     ("--base-url <url>", "set custom base URL for --add-key"),
     ("--models [KEY_INDEX]", "list available models for current or specific key"),
@@ -45,6 +50,9 @@ _OPTIONS = [
     ("--knowledge", "show stored persistent facts"),
     ("--delete-knowledge <key>", "delete a single knowledge entry"),
     ("--clear-knowledge", "wipe all stored knowledge"),
+    ("--no-color", "disable colored output"),
+    ("-V, --verbose", "show tool calls and intermediate steps"),
+    ("-q, --quiet", "suppress all output except final reply"),
     ("-h, --help", "show this help message and exit"),
 ]
 
@@ -99,7 +107,19 @@ def parse(argv: list[str] | None = None) -> CliArgs:
             print_help()
             sys.exit(0)
 
-        if arg == "--add-key":
+        if arg == "-v" or arg == "--version":
+            from nux import __version__
+
+            print(f"nux {__version__}")
+            sys.exit(0)
+
+        if arg == "--no-color":
+            args.no_color = True
+        elif arg == "-V" or arg == "--verbose":
+            args.verbose = True
+        elif arg == "-q" or arg == "--quiet":
+            args.quiet = True
+        elif arg == "--add-key":
             i += 1
             if i >= n:
                 print_error("--add-key requires a value")
@@ -393,6 +413,11 @@ def _handle_command(argv: list[str] | None) -> int | None:
 def main() -> str:
     args = parse()
 
+    if args.no_color:
+        from nux.ui.display import set_no_color
+
+        set_no_color()
+
     # Run all flag-based actions (can combine multiple flags)
     ran_action = False
 
@@ -463,3 +488,8 @@ def main() -> str:
     # Nothing to do, show help
     print_help()
     sys.exit(0)
+
+
+def get_flags() -> dict:
+    args = parse()
+    return {"verbose": args.verbose, "quiet": args.quiet, "no_color": args.no_color}

@@ -45,9 +45,11 @@ def _run_cmd(cmd: str, args: list[str] | None = None) -> str:
 class Session:
     config: Config
     packet: Packet
+    verbose: bool = False
+    quiet: bool = False
 
     @classmethod
-    def create(cls, prompt: str, cwd: str | None = None, packet: Packet | None = None) -> Session:
+    def create(cls, prompt: str, cwd: str | None = None, packet: Packet | None = None, flags: dict | None = None) -> Session:
         from nux.core.config import auto_adjust_config, load_config
         from nux.storage.apikeys import active_key
 
@@ -67,7 +69,12 @@ class Session:
                 cwd=cwd or os.getcwd(),
                 message={"prompt": prompt},
             )
-        return cls(config=config, packet=packet)
+        return cls(
+            config=config,
+            packet=packet,
+            verbose=flags.get("verbose", False) if flags else False,
+            quiet=flags.get("quiet", False) if flags else False,
+        )
 
     def get_environment_context(self) -> str:
         cwd = self.packet.cwd or os.getcwd()
@@ -153,8 +160,13 @@ def _default_turn_runner(
         from nux.core.error_logger import log_error
         from nux.core.errors import NuxError
 
+        flags = {
+            "verbose": packet.message.get("verbose", False),
+            "quiet": packet.message.get("quiet", False),
+        }
+
         try:
-            session = Session.create(prompt=prompt, packet=packet)
+            session = Session.create(prompt=prompt, packet=packet, flags=flags)
             Agent(session).run(prompt)
         except NuxError as e:
             log_error(e, context=f"prompt={prompt!r}")

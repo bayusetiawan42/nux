@@ -22,6 +22,21 @@ QUESTIONARY_STYLE_SPEC = [
 _SHINY = "dots"
 
 
+def set_no_color() -> None:
+    global console
+    console = Console(force_terminal=True, no_color=True)
+
+QUESTIONARY_STYLE_SPEC = [
+    ("qmark", "fg:#00bcd4 bold"),
+    ("question", "bold"),
+    ("pointer", "fg:#00bcd4 bold"),
+    ("highlighted", "fg:#00bcd4 bold"),
+    ("selected", "fg:#00bcd4"),
+]
+
+_SHINY = "dots"
+
+
 def yaspin_if_tty(spinner: str = _SHINY):
     if sys.stdout.isatty():
         return yaspin(spinner, text="nux")

@@ -62,17 +62,21 @@ def _wait_for_daemon(deadline: float) -> bool:
 
 
 # Send prompt to daemon, return (exit_code, should_retry).
-def _send_and_wait(prompt: str) -> tuple[int | None, bool]:
+def _send_and_wait(prompt: str, flags: dict | None = None) -> tuple[int | None, bool]:
     conn = _connect()
     if conn is None:
         return None, False
 
     try:
+        message: dict = {"prompt": prompt}
+        if flags:
+            message.update(flags)
+
         packet = Packet(
             type="CLIENT",
             version=__version__,
             cwd=os.getcwd(),
-            message={"prompt": prompt},
+            message=message,
         )
         send_message(conn, packet)
 
@@ -99,13 +103,13 @@ def _send_and_wait(prompt: str) -> tuple[int | None, bool]:
             pass
 
 
-def run_remote(prompt: str) -> int | None:
+def run_remote(prompt: str, flags: dict | None = None) -> int | None:
     if not running():
         start_daemon()
         if not _wait_for_daemon(time.monotonic() + STARTUP_WAIT):
             return None
 
-    code, should_retry = _send_and_wait(prompt)
+    code, should_retry = _send_and_wait(prompt, flags)
 
     if should_retry:
         from nux.server.daemon import stop
@@ -114,6 +118,6 @@ def run_remote(prompt: str) -> int | None:
         start_daemon()
         if not _wait_for_daemon(time.monotonic() + STARTUP_WAIT):
             return None
-        code, _ = _send_and_wait(prompt)
+        code, _ = _send_and_wait(prompt, flags)
 
     return code

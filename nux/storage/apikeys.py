@@ -199,3 +199,46 @@ def rotate_active() -> ApiKey | None:
 
 def save_rate_limit(key_id: int, reset_ts: int) -> None:
     execute_write("UPDATE apikeys SET reset_at = ? WHERE id = ?", (reset_ts, key_id))
+
+
+def remove_key(key_id: int) -> tuple[bool, str]:
+    row = execute_read_one(
+        "SELECT id, key_ref, storage FROM apikeys WHERE id = ?", (key_id,)
+    )
+    if not row:
+        return False, f"Key index {key_id} not found."
+
+    key_ref = row["key_ref"]
+    storage = row["storage"]
+
+    execute_write("DELETE FROM apikeys WHERE id = ?", (key_id,))
+
+    if storage == "file":
+        _remove_secret_file(key_ref)
+    else:
+        _remove_secret_keyring(key_ref)
+
+    return True, f"Key {key_id} removed."
+
+
+def _remove_secret_file(key_ref: str) -> None:
+    if not os.path.exists(_secrets_file()):
+        return
+    try:
+        with open(_secrets_file(), "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        payload.pop(key_ref, None)
+        fd = os.open(_secrets_file(), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(payload, f)
+    except (OSError, ValueError):
+        pass
+
+
+def _remove_secret_keyring(key_ref: str) -> None:
+    try:
+        import keyring
+
+        keyring.delete_password(_KEYRING_SERVICE, key_ref)
+    except Exception:  # noqa: BLE001
+        _remove_secret_file(key_ref)

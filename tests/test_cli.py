@@ -319,11 +319,22 @@ def test_tool_missing_value_exits():
         parse(["--tool"])
 
 
+def test_remove_key_flag():
+    args = parse(["--remove-key", "2"])
+    assert args.remove_key == "2"
+
+
+def test_remove_key_missing_value_exits():
+    with pytest.raises(SystemExit):
+        parse(["--remove-key"])
+
+
 def test_breaking_flags_defaults():
     args = parse([])
     assert args.max_turns is None
     assert args.no_confirm is False
     assert args.tools is None
+    assert args.remove_key is None
 
 
 def test_breaking_flags_combined():

@@ -37,6 +37,7 @@ class CliArgs:
     max_turns: int | None = None
     no_confirm: bool = False
     tools: str | None = None
+    remove_key: str | None = None
 
 
 _DESCRIPTION = "Nux. Your terminal on steroids!"
@@ -55,6 +56,7 @@ _COMMANDS = [
 _OPTIONS = [
     ("-v, --version", "show version and exit"),
     ("--add-key <key>", "add a Groq API key"),
+    ("--remove-key <INDEX>", "remove an API key by index"),
     ("--base-url <url>", "set custom base URL for --add-key"),
     ("--models [KEY_INDEX]", "list available models for current or specific key"),
     ("--stats [KEY_INDEX]", "show keys, model, context window, and usage"),
@@ -176,6 +178,12 @@ def parse(argv: list[str] | None = None) -> CliArgs:
                 print_error("--tool requires a value")
                 sys.exit(1)
             args.tools = argv[i]
+        elif arg == "--remove-key":
+            i += 1
+            if i >= n:
+                print_error("--remove-key requires a value")
+                sys.exit(1)
+            args.remove_key = argv[i]
         elif arg == "--add-key":
             i += 1
             if i >= n:
@@ -807,6 +815,21 @@ def main() -> str:
 
         add_key(args.add_key, base_url=args.base_url)
         print_success("API key added.")
+        ran_action = True
+
+    if args.remove_key:
+        from nux.storage.apikeys import remove_key
+
+        try:
+            idx = int(args.remove_key)
+        except ValueError:
+            print_error("--remove-key must be a key index (integer)")
+            sys.exit(1)
+        success, msg = remove_key(idx)
+        if success:
+            print_success(msg)
+        else:
+            print_error(msg)
         ran_action = True
 
     if args.models is not None:

@@ -37,7 +37,7 @@ class TestSessionCreate:
     def test_create_with_custom_config(self):
         session = Session.create("test")
         # Config should have default values
-        assert session.config.model == "openai/gpt-oss-20b"
+        assert session.config.model == "openai/gpt-oss-120b"
         assert session.config.max_history == 12
 
 

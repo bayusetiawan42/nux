@@ -28,7 +28,7 @@ def test_supported_syntaxes(monkeypatch, tmp_path, syntax):
 def test_missing_rc_returns_defaults(monkeypatch, tmp_path):
     monkeypatch.setattr("nux.core.config.RC_FILE", str(tmp_path / "does-not-exist"))
     cfg = load_config()
-    assert cfg.model == "openai/gpt-oss-20b"
+    assert cfg.model == "openai/gpt-oss-120b"
     assert cfg.max_history == 12
     assert cfg.temperature == 0.7
 

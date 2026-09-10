@@ -13,7 +13,7 @@ _DEFAULTS = None  # populated after Config is defined
 
 @dataclass
 class Config:
-    model: str = "openai/gpt-oss-20b"
+    model: str = "openai/gpt-oss-120b"
     max_history: int = 12
     max_textlen_chars: int = 2000  # chars
     max_textlen_tokens: int = 1200  # tokens

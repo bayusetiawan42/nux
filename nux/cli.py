@@ -85,16 +85,17 @@ def _col_width(items: list[tuple[str, str]]) -> int:
 
 
 def print_help() -> None:
-    w = _col_width(_COMMANDS)
+    top_pad = _col_width(_COMMANDS)
+
     print("Usage: nux [options] [message...]\n")
     print("Commands:")
     for syn, desc in _COMMANDS:
-        print(f"  {syn:<{w}}{desc}")
+        print(f"  {syn:<{top_pad}}{desc}")
     print()
     print("Options:")
-    w = _col_width(_OPTIONS)
+
     for syn, desc in _OPTIONS:
-        print(f"  {syn:<{w}}{desc}")
+        print(f"  {syn:<{top_pad}}{desc}")
 
 
 def parse(argv: list[str] | None = None) -> CliArgs:

@@ -12,19 +12,18 @@ from yaspin import yaspin
 if TYPE_CHECKING:
     from yaspin.core import Yaspin
 
-_SHINY = "dots"
-
-
 @dataclass
 class SpinnerState:
-    text: str = "nux"
-    style: str = _SHINY
+    text: str = ""
+    style: str = "toggle10"
 
 
 class SpinnerHandle:
     # Per-session spinner with a FIFO queue:
     #   - push() updates the live spinner immediately (if active) and queues
     #     the state for the next tick.
+    #   - write() writes text to the top of the spinners, ensuring text not get
+    #     overwritten by \r carriage returm.
     #   - tick() pops the next queued state and applies it.
     #   - start()/stop() manage the underlying yaspin instance.
     #   - push() is safe to call even when no spinner is live (the state is
@@ -34,6 +33,9 @@ class SpinnerHandle:
         self._queue: list[SpinnerState] = []
         self._current = SpinnerState()
         self._instance: Yaspin | None = None
+
+    def write(self, text: str):
+        self._instance.write(text)
 
     def push(self, text: str, style: str | None = None) -> None:
         # Push a new spinner state and apply it immediately if live.

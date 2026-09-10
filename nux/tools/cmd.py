@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import questionary
+import strip_ansi
 from rich.markdown import Markdown
 
 from nux.core.utils.helper import token_len
@@ -308,6 +309,7 @@ def execute(args: dict, session: Session) -> ToolResult:
         transcript = (
             transcript[: session.config.max_textlen_tokens] + "[ ... Output truncated ... ]"
         )
+        transcript = strip_ansi.strip_ansi(transcript)
 
     output = f"{transcript}\n[ exit code: {returncode} ]"
     return ToolResult(output=output, should_continue=not parsed.stop_after_execution)

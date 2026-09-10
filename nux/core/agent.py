@@ -131,6 +131,7 @@ class Agent:
 
             self.session.spinner.push("thinking")
             self.session.spinner.start()
+
             try:
                 response = self.request_mgr.chat(messages, self.session.allowed_tools, self.session.spinner)
             finally:

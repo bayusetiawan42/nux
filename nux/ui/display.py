@@ -38,6 +38,7 @@ def _looks_like_markdown(text: str) -> bool:
 
 def print_reply(text: str) -> None:
     console.print("[bold cyan]nux[/bold cyan]")
+
     if _looks_like_markdown(text):
         console.print(Padding(Markdown(text), (0, 2, 0, 2)))
     else:
@@ -45,7 +46,7 @@ def print_reply(text: str) -> None:
 
 
 def print_info(msg: str) -> None:
-    console.print(f"[dim]🡒[/dim] {msg}")
+    console.print(f"[dim]→[/dim] {msg}")
 
 
 def print_error(msg: str) -> None:
@@ -53,7 +54,7 @@ def print_error(msg: str) -> None:
 
 
 def print_success(msg: str) -> None:
-    console.print(f"[bold green]✓[/bold green] {msg}")
+    console.print(f"[bold green]+[/bold green] {msg}")
 
 
 def unified_diff(old_content: str, new_content: str, path: str) -> list[str]:

@@ -6,7 +6,7 @@ import sys
 import time
 from dataclasses import dataclass
 
-from nux.ui.display import console, print_error, print_info, print_success
+from nux.ui.display import console, print_reply, print_error, print_info, print_success
 
 AVAILABLE_COMMANDS = "clear, knowledge, clear-knowledge, delete-knowledge, server, reload, config, skills, logs, doctor"
 
@@ -869,13 +869,19 @@ def main() -> str:
             print_info("No history to resume.")
         else:
             print_info("Resuming from last conversation:")
+
             for row in reversed(rows):
                 role = row["role"]
                 content = row["content"] or ""
+
+                if not content:
+                    continue
+
                 if role == "user":
-                    print_info(f"  you: {content[:100]}")
+                    print_info(f"you: {content}")
                 elif role == "assistant":
-                    print_info(f"  nux: {content[:100]}")
+                    print_reply(content)
+
         ran_action = True
 
     prompt = " ".join(args.prompt).strip()

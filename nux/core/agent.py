@@ -182,25 +182,6 @@ class Agent:
     # -- public API --
 
     def run(self, user_input: str) -> None:
-        if self.session.packet.message.get("resume") and not user_input:
-            from nux.storage.db import execute_read
-
-            rows = execute_read(
-                "SELECT role, content FROM history ORDER BY id DESC LIMIT 6",
-            )
-            if not rows:
-                print_info("No history to resume.")
-                return
-            print_info("Resuming from last conversation:")
-            for row in reversed(rows):
-                role = row["role"]
-                content = row["content"] or ""
-                if role == "user":
-                    print_info(f"  you: {content[:100]}")
-                elif role == "assistant":
-                    print_info(f"  nux: {content[:100]}")
-            return
-
         history = self.history_mgr.load()
         self.history_mgr.append_user(user_input)
         messages = self._build_messages(user_input, history)

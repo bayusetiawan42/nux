@@ -51,16 +51,6 @@ SCHEMA = {
                     "type": "string",
                     "description": "The shell command to execute.",
                 },
-                "stop_after_execution": {
-                    "type": "boolean",
-                    "description": (
-                        "Keep as false if you wanna review the command output. "
-                        "If true, stop the agent loop right after this command "
-                        "finishes instead of continuing automatically. The "
-                        "output is still sent back and recorded either way. "
-                        "Default: false."
-                    ),
-                },
                 "pass_output_to_user": {
                     "type": "boolean",
                     "description": (
@@ -84,13 +74,11 @@ _CONFIRM_STYLE = questionary.Style(QUESTIONARY_STYLE_SPEC)
 class CmdArgs:
     command: str
     pass_output_to_user: bool = False
-    stop_after_execution: bool = False
 
     @classmethod
     def from_dict(cls, args: dict) -> CmdArgs:
         return cls(
             command=args.get("command") or "",
-            stop_after_execution=args.get("stop_after_execution", False),
             pass_output_to_user=args.get("pass_output_to_user", True),
         )
 
@@ -312,4 +300,4 @@ def execute(args: dict, session: Session) -> ToolResult:
         transcript = strip_ansi.strip_ansi(transcript)
 
     output = f"{transcript}\n[ exit code: {returncode} ]"
-    return ToolResult(output=output, should_continue=not parsed.stop_after_execution)
+    return ToolResult(output=output, should_continue=True)

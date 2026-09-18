@@ -117,6 +117,9 @@ class Session:
         os_info = f"{os_name_version} | {uname_info}".strip()
 
         lines = [
+             "The following is the current environment context. ALWAYS check this context "
+             "before asking the user for information to avoid requesting redundant data.\n",
+             "AWARE: User environtment context may changed, because user can calls you anywhere & anytime\n\n"
             f"OS Information:\n {os_info}\n\n",
             f"Working Directory: {cwd}",
             f"Current Time: {datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S')}",

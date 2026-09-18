@@ -37,8 +37,6 @@ def _looks_like_markdown(text: str) -> bool:
 
 
 def print_reply(text: str) -> None:
-    console.print("[bold cyan]nux[/bold cyan]")
-
     if _looks_like_markdown(text):
         console.print(Padding(Markdown(text), (0, 2, 0, 2)))
     else:

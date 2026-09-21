@@ -31,6 +31,7 @@ class CliArgs:
     quiet: bool = False
     dry_run: bool = False
     resume: bool = False
+    resume_limit: int | None = 6
     sessions: bool = False
     json_output: bool = False
     timeout: int | None = None
@@ -69,7 +70,7 @@ _OPTIONS = [
     ("-V, --verbose", "show tool calls and intermediate steps"),
     ("-q, --quiet", "suppress all output except final reply"),
     ("-n, --dry-run", "show what the agent would do without executing"),
-    ("-r, --resume", "resume the last conversation"),
+    ("-r, --resume [LIMIT]", "resume the last conversation"),
     ("--sessions", "list past sessions"),
     ("--json", "output in JSON format"),
     ("--timeout <seconds>", "set execution timeout"),
@@ -134,6 +135,13 @@ def parse(argv: list[str] | None = None) -> CliArgs:
             args.dry_run = True
         elif arg == "-r" or arg == "--resume":
             args.resume = True
+            if i + 1 < n:
+                try:
+                    i += 1
+                    args.resume_limit = int(argv[i])
+                except ValueError:
+                    print_error("--resume LIMIT must be an integer")
+                    sys.exit(1)
         elif arg == "--sessions":
             args.sessions = True
         elif arg == "--json":
@@ -863,12 +871,12 @@ def main() -> str:
         from nux.storage.db import execute_read
 
         rows = execute_read(
-            "SELECT role, content FROM history ORDER BY id DESC LIMIT 6",
+            F"SELECT role, content FROM history ORDER BY id DESC LIMIT {args.resume_limit}",
         )
         if not rows:
             print_info("No history to resume.")
         else:
-            print_info("Resuming from last conversation:")
+            print_info(F"Resuming from last {args.resume_limit} conversation:\n\n")
 
             for row in reversed(rows):
                 role = row["role"]
@@ -878,9 +886,10 @@ def main() -> str:
                     continue
 
                 if role == "user":
-                    print_info(f"you: {content}")
+                    print_reply(f"```\nYOU: {content}\n```\n")
                 elif role == "assistant":
                     print_reply(content)
+                print_reply("\n")
 
         ran_action = True
 
